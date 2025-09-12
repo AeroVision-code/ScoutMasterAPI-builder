@@ -38,7 +38,38 @@ class ScoutMasterAPI:
         self.version = "v2"
         self.host = f"https://api.scoutmaster.nl/{self.version}/"
         self.output_format = "df"
-
+    
+    def _check_auth(self):
+        if not self.access_token:
+            raise Exception("You must authenticate first.")
+        
+    def _format_output(self, data):
+        """Helper to format API response according to self.output_format."""
+        if self.output_format == "json":
+            return data
+        elif self.output_format == "df":
+            return pd.DataFrame(data)
+        elif self.output_format == "gdf":
+            if isinstance(data, dict) and "features" in data:
+                return gpd.GeoDataFrame.from_features(data["features"])
+            return gpd.GeoDataFrame.from_features(data)
+        else:
+            raise ValueError("output_format must be 'df', 'gdf', or 'json'")
+    
+    def _get(self, endpoint, verbose=False):
+        """Internal GET request helper."""
+        try:
+            response = self.session.get(f"{self.host}{endpoint}")
+            response.raise_for_status()
+            response_json = response.json()
+            data = response_json.get("data", response_json)
+            if verbose:
+                count = response_json.get("count", len(data))
+                display(HTML(f'Response count: <span style="color:#28a745">{count}</span>'))
+            return data
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"GET request failed: {e}")
+        
     def authenticate(self, client_id, client_secret):
         data = {
             'grant_type': 'client_credentials',
@@ -52,35 +83,25 @@ class ScoutMasterAPI:
         else:
             raise Exception(f"Authentication failed: {response.status_code} {response.text}")
         
-    def _check_auth(self):
-        if not self.access_token:
-            raise Exception("You must authenticate first.")
-
-    def crops(self):
+    def crops(self, verbose=False):
+        """Retrieve the list of crops from the API."""
         self._check_auth()
-        data = self._get("crops")
-        return pd.DataFrame(data) if self.output_format == "df" else data
+        data = self._get("crops", verbose=verbose)
+        return self._format_output(data)
 
     def crop_varieties(self, crop_code):
         self._check_auth()
         data = self._get(f"crops/{crop_code}/varieties")
-        return pd.DataFrame(data) if self.output_format == "df" else data
+        return self._format_output(data)
 
     def fields(self, project_id):
         self._check_auth()
         endpoint = f"fields?project_id={project_id}"
-        if self.output_format in ["geojson", "gdf"]:
+        if self.output_format == "geojson":
             endpoint += "&output=geojson"
+            self.output_format == "json"
         data = self._get(endpoint)
-        if self.output_format == "df":
-            return pd.DataFrame(data)
-        elif self.output_format == "gdf":
-            # If data is a FeatureCollection, use gpd.GeoDataFrame.from_features
-            if isinstance(data, dict) and "features" in data:
-                return gpd.GeoDataFrame.from_features(data["features"])
-            # If data is a list of features
-            return gpd.GeoDataFrame.from_features(data)
-        return data
+        return self._format_output(data)
     
     def fields_create(self, project_collection_id, fields_data):
         """
@@ -349,24 +370,7 @@ class ScoutMasterAPI:
             raise Exception(f"POST request failed: {e}")
 
 
-    def _get(self, endpoint):
-        headers = {'Authorization': f'Bearer {self.access_token}'}
-        try:
-            response = requests.get(f"{self.host}{endpoint}", headers=headers)
-            response_json = response.json()
-            if response.status_code == 200:
-                data = response_json.get("data", [])
-                count = response_json.get("count", len(data))
-                display(HTML(f'Response count: <span style="color:#28a745">{count}</span>'))
-                return data
-            elif response.status_code == 404:
-                message = response_json.get("message", "No data found")
-                display(HTML(f'<span style="color:#ffc107">Warning:</span> {message}'))
-                return []
-            else:
-                raise Exception(f"Failed to retrieve {endpoint}: {response.status_code} {response.text}")
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Request failed: {e}")
+
         
     def _post(self, endpoint, payload=None):
         headers = {
@@ -379,11 +383,9 @@ class ScoutMasterAPI:
             if response.status_code == 201:
                 data = response_json.get("data", [])
                 count = response_json.get("count", len(data))
-                display(HTML(f'Response count: <span style="color:#28a745">{count}</span>'))
                 return data
             elif response.status_code == 404:
                 message = response_json.get("message", "No data found")
-                display(HTML(f'<span style="color:#ffc107">Warning:</span> {message}'))
                 return []
             else:
                 raise Exception(f"Failed to POST to {endpoint}: {response.status_code} {response.text}")
