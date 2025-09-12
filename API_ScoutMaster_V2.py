@@ -4,7 +4,7 @@ from requests.auth import HTTPBasicAuth
 import geopandas as gpd
 from IPython.display import display, HTML
 
-class ScoutmasterAPI:
+class ScoutMasterAPI:
     """
     ScoutmasterAPI provides an interface to interact with the ScoutMaster API v2.
     Attributes:
