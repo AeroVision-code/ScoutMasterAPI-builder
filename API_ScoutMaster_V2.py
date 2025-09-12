@@ -67,7 +67,7 @@ class ScoutMasterAPI:
     def _get(self, endpoint, verbose=False):
         """Internal GET request helper."""
         try:
-            response = self.session.get(f"{self.host}{endpoint}", headers=self._get_headers())
+            response = requests.get(f"{self.host}{endpoint}", headers=self._get_headers())
             response.raise_for_status()
             response_json = response.json()
             data = response_json.get("data", response_json)
