@@ -43,6 +43,14 @@ class ScoutMasterAPI:
         if not self.access_token:
             raise Exception("You must authenticate first.")
         
+    def _get_headers(self):
+        """Helper to return headers with the access token."""
+        self._check_auth()
+        return {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/json'
+        }
+        
     def _format_output(self, data):
         """Helper to format API response according to self.output_format."""
         if self.output_format == "json":
@@ -59,7 +67,7 @@ class ScoutMasterAPI:
     def _get(self, endpoint, verbose=False):
         """Internal GET request helper."""
         try:
-            response = self.session.get(f"{self.host}{endpoint}")
+            response = self.session.get(f"{self.host}{endpoint}", headers=self._get_headers())
             response.raise_for_status()
             response_json = response.json()
             data = response_json.get("data", response_json)
@@ -85,7 +93,6 @@ class ScoutMasterAPI:
         
     def crops(self, verbose=False):
         """Retrieve the list of crops from the API."""
-        self._check_auth()
         data = self._get("crops", verbose=verbose)
         return self._format_output(data)
 
@@ -95,7 +102,6 @@ class ScoutMasterAPI:
         return self._format_output(data)
 
     def fields(self, project_id):
-        self._check_auth()
         endpoint = f"fields?project_id={project_id}"
         if self.output_format == "geojson":
             endpoint += "&output=geojson"
