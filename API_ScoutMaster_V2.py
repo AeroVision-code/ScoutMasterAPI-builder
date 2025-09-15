@@ -87,7 +87,9 @@ class ScoutMasterAPI:
         response = self.session.post(self.token_url, data=data, headers={'Accept': 'application/json'})
         if response.status_code == 200:
             self.access_token = response.json().get('access_token')
-            return self.access_token
+            if not self.access_token:
+                raise Exception("Authentication succeeded but no access_token was returned.")
+            print("✅ Successfully authenticated API")
         else:
             raise Exception(f"Authentication failed: {response.status_code} {response.text}")
         
