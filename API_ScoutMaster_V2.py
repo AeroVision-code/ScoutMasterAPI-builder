@@ -132,10 +132,13 @@ class ScoutMasterAPI:
         return self._format_output(data)
 
     def fields(self, project_id):
-        endpoint = f"fields?project_id={project_id}"
+        endpoint = f"fields"
+        params = {"project_id": project_id}
         if self.output_format in ["geojson", "gdf"]:
-            endpoint += "&output=geojson"
-        data = self._get(endpoint)
+            params["output"] = "geojson"
+
+        # Pass params to _get
+        data = self._get(endpoint, params=params)
         return self._format_output(data)
     
     def fields_create(self, project_collection_id, fields_data):
