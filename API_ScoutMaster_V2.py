@@ -89,7 +89,7 @@ class ScoutMasterAPI:
             self.access_token = response.json().get('access_token')
             if not self.access_token:
                 raise Exception("Authentication succeeded but no access_token was returned.")
-            print("✅ Successfully authenticated API")
+            print("✅ Successfully authenticated ScoutMaster API")
         else:
             raise Exception(f"Authentication failed: {response.status_code} {response.text}")
         
