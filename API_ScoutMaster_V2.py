@@ -1,3 +1,4 @@
+import json
 import requests
 import pandas as pd
 from requests.auth import HTTPBasicAuth
@@ -62,14 +63,15 @@ class ScoutMasterAPI:
                 return gpd.GeoDataFrame.from_features(data["features"])
             return gpd.GeoDataFrame.from_features(data)
         elif self.output_format == "geojson":
-            # Return GeoJSON dict
             if isinstance(data, gpd.GeoDataFrame):
-                return data.__geo_interface__  # Converts GeoDataFrame to GeoJSON-like dict
+                geojson_dict = data.__geo_interface__
             elif isinstance(data, dict) and "features" in data:
-                return data  # Already a GeoJSON dict
+                geojson_dict = data
             else:
-                # Wrap data into a GeoJSON FeatureCollection if possible
-                return {"type": "FeatureCollection", "features": data}
+                geojson_dict = {"type": "FeatureCollection", "features": data}
+
+            # Serialize to valid JSON string if needed
+            return json.dumps(geojson_dict)  # <-- Ensures proper double quotes
         else:
             raise ValueError("output_format must be 'df', 'gdf', 'geojson', or 'json'")
     
