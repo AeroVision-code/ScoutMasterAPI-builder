@@ -61,13 +61,26 @@ class ScoutMasterAPI:
             if isinstance(data, dict) and "features" in data:
                 return gpd.GeoDataFrame.from_features(data["features"])
             return gpd.GeoDataFrame.from_features(data)
+        elif self.output_format == "geojson":
+            # Return GeoJSON dict
+            if isinstance(data, gpd.GeoDataFrame):
+                return data.__geo_interface__  # Converts GeoDataFrame to GeoJSON-like dict
+            elif isinstance(data, dict) and "features" in data:
+                return data  # Already a GeoJSON dict
+            else:
+                # Wrap data into a GeoJSON FeatureCollection if possible
+                return {"type": "FeatureCollection", "features": data}
         else:
-            raise ValueError("output_format must be 'df', 'gdf', or 'json'")
+            raise ValueError("output_format must be 'df', 'gdf', 'geojson', or 'json'")
     
-    def _get(self, endpoint, verbose=False):
+    def _get(self, endpoint, params=None, verbose=False):
         """Internal GET request helper."""
         try:
-            response = requests.get(f"{self.host}{endpoint}", headers=self._get_headers())
+            response = requests.get(
+                f"{self.host}{endpoint}",
+                headers=self._get_headers(),
+                params=params  # requests will handle encoding
+            )
             response.raise_for_status()
             response_json = response.json()
             data = response_json.get("data", response_json)
@@ -93,9 +106,22 @@ class ScoutMasterAPI:
         else:
             raise Exception(f"Authentication failed: {response.status_code} {response.text}")
         
-    def crops(self, verbose=False):
-        """Retrieve the list of crops from the API."""
-        data = self._get("crops", verbose=verbose)
+    def crops(self, sort_by=None, order=None, limit=None, page=None, verbose=False):
+        """Retrieve the list of crops from the API with optional sorting and pagination."""
+        endpoint = "crops"
+        params = {}
+
+        # Add optional parameters if provided
+        if sort_by:
+            params["sort_by"] = sort_by
+        if order:
+            params["order"] = order
+        if limit:
+            params["limit"] = limit
+        if page:
+            params["page"] = page
+
+        data = self._get(endpoint, params=params, verbose=verbose)
         return self._format_output(data)
 
     def crop_varieties(self, crop_code):
@@ -107,7 +133,6 @@ class ScoutMasterAPI:
         endpoint = f"fields?project_id={project_id}"
         if self.output_format in ["geojson", "gdf"]:
             endpoint += "&output=geojson"
-            self.output_format == "json"
         data = self._get(endpoint)
         return self._format_output(data)
     
