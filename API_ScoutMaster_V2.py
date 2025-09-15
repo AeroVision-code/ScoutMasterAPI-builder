@@ -103,7 +103,7 @@ class ScoutMasterAPI:
 
     def fields(self, project_id):
         endpoint = f"fields?project_id={project_id}"
-        if self.output_format == "geojson":
+        if self.output_format in ["geojson", "gdf"]:
             endpoint += "&output=geojson"
             self.output_format == "json"
         data = self._get(endpoint)
