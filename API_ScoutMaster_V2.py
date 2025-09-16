@@ -248,7 +248,7 @@ class ScoutMasterAPI:
         data = self._get(endpoint)
         return pd.DataFrame(data) if self.output_format == "df" else data
     
-    def layers_types(self, layer_source_id=None):
+    def layers_types(self, project_id=None, layer_sensor_id=None):
         """
         Retrieves available layer types, optionally filtered by layer source.
         Args:
@@ -258,10 +258,13 @@ class ScoutMasterAPI:
         """
         self._check_auth()
         endpoint = "layers/types"
-        if layer_source_id is not None:
-            endpoint += f"?layerSourceId={layer_source_id}"
-        data = self._get(endpoint)
-        return pd.DataFrame(data) if self.output_format == "df" else data
+        params = {}
+        if project_id is not None:
+            params["project_id"] = project_id
+        if layer_sensor_id is not None:
+            params["layer_sensor_id"] = layer_sensor_id
+        data = self._get(endpoint, params)
+        return self._format_output(data)
     
     def layers(self, field_id, layer_type_id=None, start_date=None, end_date=None):
         self._check_auth()
