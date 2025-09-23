@@ -235,18 +235,16 @@ class ScoutMasterAPI:
                 raise Exception(f"Failed to delete field: {response.status_code} {response.text}")
         except requests.exceptions.RequestException as e:
             raise Exception(f"DELETE request failed: {e}")
-
-        
-    def layers_sources(self):
+     
+    def sensors(self):
         """
         Retrieves available layer sources.
         Returns:
             pd.DataFrame or list: Layer sources as DataFrame or JSON list.
         """
         self._check_auth()
-        endpoint = "layers/sensors"
-        data = self._get(endpoint)
-        return pd.DataFrame(data) if self.output_format == "df" else data
+        data = self._get(f"layers/sensors")
+        return self._format_output(data)
     
     def layers_types(self, project_id=None, layer_sensor_id=None):
         """
