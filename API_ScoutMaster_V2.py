@@ -33,11 +33,14 @@ class ScoutMasterAPI:
             Retrieves available layer types, optionally filtered by layer source. Returns data as JSON or pandas DataFrame.
     Output options are "df" (pandas DataFrame) and "json".
     """
-    def __init__(self):
+    def __init__(self, dev=False):
         self.token_url = "https://eu-central-1fq4qt7w6q.auth.eu-central-1.amazoncognito.com/oauth2/token"
         self.access_token = None
         self.version = "v2"
-        self.host = f"https://api.scoutmaster.nl/{self.version}/"
+        if dev:
+            self.host = f"https://dev-api.scoutmaster.nl/{self.version}/"
+        else:
+            self.host = f"https://api.scoutmaster.nl/{self.version}/"
         self.output_format = "df"
     
     def _check_auth(self):
@@ -374,8 +377,7 @@ class ScoutMasterAPI:
         endpoint = f"subscription/{field_id}"
         data = self._get(endpoint)
         return pd.DataFrame(data) if self.output_format == "df" else data
-    
-    
+        
     def post_subscription(self, field_id, user_id, subscription_type=None):
         """
         Creates a subscription for a given field and user.
@@ -408,7 +410,12 @@ class ScoutMasterAPI:
         except requests.exceptions.RequestException as e:
             raise Exception(f"POST request failed: {e}")
 
-
+    def get_projects(self):
+        self._check_auth()
+        endpoint = "projects/"
+        params = {}
+        data = self._get(endpoint, params)
+        return self._format_output(data)
 
         
     def _post(self, endpoint, payload=None):
