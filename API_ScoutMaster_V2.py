@@ -238,6 +238,26 @@ class ScoutMasterAPI:
                 raise Exception(f"Failed to delete field: {response.status_code} {response.text}")
         except requests.exceptions.RequestException as e:
             raise Exception(f"DELETE request failed: {e}")
+    
+    def observations(self, project_id):
+        endpoint = f"observations/{project_id}/"
+        params = {}
+        if self.output_format in ["geojson", "gdf"]:
+            params["output"] = "geojson"
+
+        # Pass params to _get
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
+    
+    def observations_parameters(self):
+        endpoint = f"observations/parameters/"
+        params = {}
+        # if self.output_format in ["geojson", "gdf"]:
+        #     params["output"] = "geojson"
+
+        # Pass params to _get
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
      
     def sensors(self):
         """
