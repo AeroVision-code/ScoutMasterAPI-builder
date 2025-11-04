@@ -240,7 +240,7 @@ class ScoutMasterAPI:
             raise Exception(f"DELETE request failed: {e}")
     
     def observations(self, project_id):
-        endpoint = f"observations/{project_id}/"
+        endpoint = f"projects/{project_id}/observations"
         params = {}
         if self.output_format in ["geojson", "gdf"]:
             params["output"] = "geojson"
