@@ -55,6 +55,36 @@ class BaseAPI:
             return data
         except requests.exceptions.RequestException as e:
             raise Exception(f"GET request failed: {e}")
+        
+    def _post(self, endpoint, payload=None):
+        """
+        Internal helper to send a POST request to the API.
+        """
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/json'
+        }
+
+        try:
+            response = requests.post(f"{self.host}{endpoint}", headers=headers, json=payload or {})
+            response_json = response.json()
+
+            # Accept both 200 and 201 as success
+            if response.status_code in [200, 201]:
+                return response_json.get("data", response_json)
+            elif response.status_code == 404:
+                message = response_json.get("message", "No data found")
+                return []
+            else:
+                raise Exception(
+                    f"Failed POST request to {endpoint}: {response.status_code} {response.text}"
+                )
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"POST request failed: {e}")
+        except ValueError as e:
+            # Handle JSON decode errors
+            raise Exception(f"POST request to {endpoint} did not return valid JSON: {e}")
+
 
     def _format_output(self, data):
         """Helper to format API response according to self.output_format."""
