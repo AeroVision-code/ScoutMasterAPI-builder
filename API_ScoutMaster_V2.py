@@ -63,8 +63,15 @@ class ScoutMasterAPI:
             return pd.DataFrame(data)
         elif self.output_format == "gdf":
             if isinstance(data, dict) and "features" in data:
-                return gpd.GeoDataFrame.from_features(data["features"])
-            return gpd.GeoDataFrame.from_features(data)
+                gdf = gpd.GeoDataFrame.from_features(data["features"])
+            else:
+                gdf = gpd.GeoDataFrame.from_features(data)
+
+            # Set CRS only if not already defined
+            if gdf.crs is None:
+                gdf.set_crs(epsg=4326, inplace=True)
+
+            return gdf
         elif self.output_format == "geojson":
             if isinstance(data, gpd.GeoDataFrame):
                 geojson_dict = data.__geo_interface__
@@ -108,6 +115,7 @@ class ScoutMasterAPI:
             if not self.access_token:
                 raise Exception("Authentication succeeded but no access_token was returned.")
             print("✅ Successfully authenticated ScoutMaster API")
+            print("HOST:", self.host)
         else:
             raise Exception(f"Authentication failed: {response.status_code} {response.text}")
         
@@ -135,13 +143,14 @@ class ScoutMasterAPI:
         return self._format_output(data)
 
     def fields(self, project_id):
-        endpoint = f"fields"
-        params = {"project_id": project_id}
+        endpoint = f"projects/{project_id}/fields"
+        params = {}
         if self.output_format in ["geojson", "gdf"]:
             params["output"] = "geojson"
 
         # Pass params to _get
         data = self._get(endpoint, params=params)
+        print(data)
         return self._format_output(data)
     
     def fields_create(self, project_collection_id, fields_data):
@@ -430,12 +439,16 @@ class ScoutMasterAPI:
         except requests.exceptions.RequestException as e:
             raise Exception(f"POST request failed: {e}")
 
-    def get_projects(self):
+    def projects(self):
         self._check_auth()
         endpoint = "projects/"
         params = {}
         data = self._get(endpoint, params)
         return self._format_output(data)
+    
+    def create_project(self):
+        self._check_auth()
+        endpoint = "projects/"
 
         
     def _post(self, endpoint, payload=None):
