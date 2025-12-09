@@ -7,7 +7,7 @@ class Projects:
         data = self._get("projects/")
         return self._format_output(data)
     
-    def project_create(self, project_data, userid, client_id=None):
+    def project_create(self, user_id, name, abbreviation=None):
 
         """
         Create new project
@@ -21,15 +21,17 @@ class Projects:
         """
         self._check_auth()
         endpoint = f"{self.host}projects"
-        params = {"user_id": userid}
-        if client_id is not None:
-            params["client_id"] = client_id
+        if abbreviation is None:
+            abbreviation = name[:2].upper()
+        project_data = {"user_id": user_id,
+                  "name": name,
+                  "abbreviation": abbreviation}
         headers = {
             'Authorization': f'Bearer {self.access_token}',
             'Content-Type': 'application/json'
         }
         try:
-            response = requests.post(endpoint, json=project_data, headers=headers, params=params)
+            response = requests.post(endpoint, json=project_data, headers=headers)
             response_json = response.json()
             if response.status_code == 200 or response.status_code == 201:
                 return pd.DataFrame(response_json) if self.output_format == "df" else response_json
