@@ -8,6 +8,7 @@ class Cultivations:
         # Pass params to _get
         data = self._get(endpoint, params=params)
         return self._format_output(data)
+    
     def cultivations_by_field(self, field_id):
         endpoint = f"fields/{field_id}/calendar"
         params = {}
@@ -16,5 +17,11 @@ class Cultivations:
 
         # Pass params to _get
         data = self._get(endpoint, params=params)
+        return self._format_output(data)
+
+    def cultivations_create(self, field_id, cultivation_data):
+        endpoint = f"fields/{field_id}/calendar"
+        data = self._post(endpoint, cultivation_data)
+        print(data)
         return self._format_output(data)
     
