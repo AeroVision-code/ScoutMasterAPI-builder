@@ -41,6 +41,8 @@ class BaseAPI:
     def _get(self, endpoint, params=None, verbose=False):
         """Internal GET request helper."""
         try:
+            self._check_auth()
+        
             response = requests.get(
                 f"{self.host}{endpoint}",
                 headers=self._get_headers(),
@@ -60,12 +62,15 @@ class BaseAPI:
         """
         Internal helper to send a POST request to the API.
         """
-        headers = {
-            'Authorization': f'Bearer {self.access_token}',
-            'Content-Type': 'application/json'
-        }
+
 
         try:
+            self._check_auth()
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json'
+            }
+            
             response = requests.post(f"{self.host}{endpoint}", headers=headers, json=payload or {})
             response_json = response.json()
 

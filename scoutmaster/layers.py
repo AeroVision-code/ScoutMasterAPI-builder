@@ -1,6 +1,5 @@
 class Layers:
     def layers(self, field_id, layer_type_id=None, start_date=None, end_date=None):
-        self._check_auth()
         endpoint = f"layers/{field_id}/"
         params = []
         if layer_type_id is not None:
@@ -26,7 +25,6 @@ class Layers:
         Returns:
             Formatted response (DataFrame or dict) depending on self.output_format.
         """
-        self._check_auth()
         endpoint = "layers/upload-url"
 
         # Build JSON payload (all mandatory)
@@ -39,3 +37,11 @@ class Layers:
         # Send POST request
         data = self._post(endpoint, payload=payload)
         return data
+    
+    def layers_rasters(self, layer_id):
+    
+        endpoint = f"layers/{layer_id}/raster"
+        
+        data = self._get(endpoint)
+        return data
+        

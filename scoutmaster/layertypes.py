@@ -8,7 +8,6 @@ class LayerTypes:
         Returns:
             pd.DataFrame or list: Layer types as DataFrame or JSON list.
         """
-        self._check_auth()
         endpoint = "layer-types"
         params = {}
         if project_id is not None:

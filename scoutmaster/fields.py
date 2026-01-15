@@ -33,12 +33,10 @@ class Fields:
         Returns:
             pd.DataFrame or dict: Created observation.
         """
-        self._check_auth()
-        
+      
         endpoint = f"projects/{project_id}/fields"
         try:
             data = self._post(endpoint, field_data)
-            print(data)
             return pd.DataFrame(data) if self.output_format == "df" else data
 
         except requests.exceptions.RequestException as e:
