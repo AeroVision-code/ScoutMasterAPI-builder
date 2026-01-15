@@ -4,8 +4,12 @@ import mimetypes
 
 class Projects:
     def projects(self):
-        data = self._get("projects/")
-        return self._format_output(data)
+        try: 
+            endpoint = "projects/"
+            data = self._get(endpoint)
+            return self._format_output(data)
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Request failed: {e}")
     
     def project_create(self, user_id, name, abbreviation=None):
 
@@ -19,20 +23,32 @@ class Projects:
         Returns:
             pd.DataFrame or dict: Created fields as DataFrame or JSON.
         """
-        self._check_auth()
-        endpoint = f"projects"
-        if abbreviation is None:
-            abbreviation = name[:2].upper()
-        project_data = {"user_id": user_id,
-                  "name": name,
-                  "abbreviation": abbreviation}
         try:
+            endpoint = f"projects"
+            if abbreviation is None:
+                abbreviation = name[:2].upper()
+                
+            project_data = {
+                "user_id": user_id,
+                "name": name,
+                "abbreviation": abbreviation
+            }
             data = self._post(endpoint, project_data)
-            print(data)
             return data
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
+        
+    def project_by_id(self, project_id):
+        try:
+            endpoint = f"projects/{project_id}"
+            data = self._get(endpoint)
+            return data
+            
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Request failed: {e}")
+        
+        
         
     def project_uploadurl(self, project_id):
         """

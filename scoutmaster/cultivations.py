@@ -22,6 +22,5 @@ class Cultivations:
     def cultivations_create(self, field_id, cultivation_data):
         endpoint = f"fields/{field_id}/calendar"
         data = self._post(endpoint, cultivation_data)
-        print(data)
         return self._format_output(data)
     
