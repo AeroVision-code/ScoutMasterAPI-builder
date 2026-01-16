@@ -62,33 +62,42 @@ class BaseAPI:
         """
         Internal helper to send a POST request to the API.
         """
-
+        self._check_auth()
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/json'
+        }
 
         try:
-            self._check_auth()
-            headers = {
-                'Authorization': f'Bearer {self.access_token}',
-                'Content-Type': 'application/json'
-            }
-            
             response = requests.post(f"{self.host}{endpoint}", headers=headers, json=payload or {})
-            response_json = response.json()
 
-            # Accept both 200 and 201 as success
+            # First, check if the response has content
+            if response.content:
+                try:
+                    response_json = response.json()
+                except ValueError:
+                    # Non-JSON response
+                    raise Exception(
+                        f"POST request to {endpoint} did not return valid JSON. "
+                        f"Response content: {response.text}"
+                    )
+            else:
+                response_json = {}
+
+            # Handle response based on status code
             if response.status_code in [200, 201]:
+                # Prefer "data" key if exists
                 return response_json.get("data", response_json)
             elif response.status_code == 404:
-                message = response_json.get("message", "No data found")
+                # Treat "not found" as empty list
                 return []
             else:
                 raise Exception(
                     f"Failed POST request to {endpoint}: {response.status_code} {response.text}"
                 )
+
         except requests.exceptions.RequestException as e:
             raise Exception(f"POST request failed: {e}")
-        except ValueError as e:
-            # Handle JSON decode errors
-            raise Exception(f"POST request to {endpoint} did not return valid JSON: {e}")
 
 
     def _format_output(self, data):
@@ -120,3 +129,11 @@ class BaseAPI:
             return json.dumps(geojson_dict)  # <-- Ensures proper double quotes
         else:
             raise ValueError("output_format must be 'df', 'gdf', 'geojson', or 'json'")
+        
+    def _validate_numeric_fields(self, data: dict, fields: list[str]):
+        for field in fields:
+            if field in data and data[field] is not None:
+                try:
+                    data[field] = float(data[field])
+                except (ValueError, TypeError):
+                    raise ValueError(f"'{field}' must be a number if provided.")
