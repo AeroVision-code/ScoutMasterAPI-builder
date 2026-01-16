@@ -24,3 +24,8 @@ class Cultivations:
         data = self._post(endpoint, cultivation_data)
         return self._format_output(data)
     
+    def cultivations_tsum(self, cultivation_id):
+        endpoint = f"calendars/{cultivation_id}/tsum"
+        data = self._get(endpoint)
+        return self._format_output(data)
+    
