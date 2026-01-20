@@ -13,6 +13,16 @@ class Fields:
         data = self._get(endpoint, params=params)
         return self._format_output(data)
     
+    def field_by_id(self, field_id):
+        endpoint = f"fields/{field_id}"
+        params = {}
+        if self.output_format in ["geojson", "gdf"]:
+            params["output"] = "geojson"
+        data = self._get(endpoint, params=params)
+        if self.output_format in ["df"]:
+            data = [data]
+        return self._format_output(data)
+    
     def fields_create(self, project_id, field_data):
         """
         Create a new observation in the specified project.

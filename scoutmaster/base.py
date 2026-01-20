@@ -108,9 +108,16 @@ class BaseAPI:
             return pd.DataFrame(data)
         elif self.output_format == "gdf":
             if isinstance(data, dict) and "features" in data:
+                # Proper FeatureCollection
                 gdf = gpd.GeoDataFrame.from_features(data["features"])
-            else:
+            elif isinstance(data, dict) and "geometry" in data:
+                # Single feature dict, wrap in list
+                gdf = gpd.GeoDataFrame.from_features([data])
+            elif isinstance(data, list):
+                # List of feature dicts
                 gdf = gpd.GeoDataFrame.from_features(data)
+            else:
+                raise ValueError("Invalid data format for gdf output")
 
             # Set CRS only if not already defined
             if gdf.crs is None:
