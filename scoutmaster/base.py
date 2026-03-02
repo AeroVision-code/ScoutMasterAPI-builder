@@ -7,10 +7,10 @@ import json
 
 class BaseAPI:
     """Core HTTP requests and output formatting"""
-    def __init__(self, dev=False, output_format="df"):
+    def __init__(self, dev=False, output_format="df", version="v2"):
         self.token_url = "https://eu-central-1fq4qt7w6q.auth.eu-central-1.amazoncognito.com/oauth2/token"
         self.access_token = None
-        self.version = "v2"
+        self.version = version
         self.host = f"https://dev-api.scoutmaster.nl/{self.version}/" if dev else f"https://api.scoutmaster.nl/{self.version}/"
         self.output_format = output_format
         self.lang = "en"
