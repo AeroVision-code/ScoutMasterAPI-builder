@@ -25,23 +25,22 @@ class Fields:
     
     def fields_create(self, project_id, field_data):
         """
-        Create a new observation in the specified project.
+        Create a new field in the specified project.
 
         Args:
             project_id (str): The ID of the project.
-            obs_data (dict): Observation data with required fields:
+            field_data (dict): Field data with required fields:
                 {
                     "user_id": "uuid",
-                    "name": "string"
+                    "name": "string",
                     "properties": {
-                        "des"
+                        "description": "string"
                     },
-                    "geometry": { "type": "Polygon, "coordinates": [[x, y]] },
-                    "reference_code": "string"
+                    "geometry": { "type": "Polygon", "coordinates": [[x, y]] },
                 }
 
         Returns:
-            pd.DataFrame or dict: Created observation.
+            pd.DataFrame or dict: Created field.
         """
       
         endpoint = f"projects/{project_id}/fields"
