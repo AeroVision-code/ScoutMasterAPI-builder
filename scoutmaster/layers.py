@@ -1,3 +1,4 @@
+import mimetypes
 import os
 
 
@@ -50,29 +51,29 @@ class Layers:
     
 
     def layer_create(self, field_id, type_id, acquired_at, file_path):
-        """
-        Upload a new layer file to a field.
-
-        Args:
-            field_id (str): ID of the field.
-            type_id (str): Layer type ID.
-            acquired_at (str): Acquisition timestamp (ISO8601, e.g., 2025-11-21T10:15:30Z).
-            file_path (str): Path to the file to upload.
-
-        Returns:
-            dict: API response.
-        """
         endpoint = f"fields/{field_id}/layers"
 
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        files = {"file": open(file_path, "rb")}
+        # ✅ detect mimetype from file extension
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if mime_type is None:
+            mime_type = 'application/octet-stream'
+
+        # ✅ explicitly set filename and content type
+        files = {
+            "file": (
+                os.path.basename(file_path),  # filename
+                open(file_path, "rb"),         # file handle
+                mime_type,                     # content type
+            )
+        }
         data = {"acquired_at": acquired_at, "type_id": type_id}
 
         try:
             response = self._post(endpoint, payload=data, files=files)
         finally:
-            files["file"].close()  # always close file
+            files["file"][1].close()  # close the file handle (index 1 in tuple)
 
         return response
