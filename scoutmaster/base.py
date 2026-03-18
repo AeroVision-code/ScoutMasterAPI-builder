@@ -59,18 +59,31 @@ class BaseAPI:
         except requests.exceptions.RequestException as e:
             raise Exception(f"GET request failed: {e}")
         
-    def _post(self, endpoint, payload=None):
+
+
+    def _post(self, endpoint, payload=None, files=None):
         """
         Internal helper to send a POST request to the API.
+        
+        Supports JSON payloads (default) or multipart/form-data if files are provided.
         """
         self._check_auth()
+
+        # Default headers for JSON
         headers = {
-            'Authorization': f'Bearer {self.access_token}',
-            'Content-Type': 'application/json'
+            'Authorization': f'Bearer {self.access_token}'
         }
 
+        # If sending JSON (no files)
+        if files is None:
+            headers['Content-Type'] = 'application/json'
+            request_args = {"json": payload or {}}
+        else:
+            # multipart/form-data automatically set by requests if files are provided
+            request_args = {"data": payload or {}, "files": files}
+
         try:
-            response = requests.post(f"{self.host}{endpoint}", headers=headers, json=payload or {})
+            response = requests.post(f"{self.host}{endpoint}", headers=headers, **request_args)
 
             # First, check if the response has content
             if response.content:
@@ -87,10 +100,8 @@ class BaseAPI:
 
             # Handle response based on status code
             if response.status_code in [200, 201]:
-                # Prefer "data" key if exists
                 return response_json.get("data", response_json)
             elif response.status_code == 404:
-                # Treat "not found" as empty list
                 return []
             else:
                 raise Exception(
