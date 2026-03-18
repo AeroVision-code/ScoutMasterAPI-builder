@@ -1,4 +1,3 @@
-
 class Subscriptions:
     def subscriptions_by_field(self, field_id):
         endpoint = f"subscription/{field_id}/"
