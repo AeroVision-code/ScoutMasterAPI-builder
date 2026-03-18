@@ -1,4 +1,3 @@
-from IPython.display import display, HTML
 import pandas as pd
 import geopandas as gpd
 from requests.auth import HTTPBasicAuth
@@ -54,7 +53,6 @@ class BaseAPI:
             data = response_json.get("data", response_json)
             if verbose:
                 count = response_json.get("count", len(data))
-                display(HTML(f'Response count: <span style="color:#28a745">{count}</span>'))
             return data
         except requests.exceptions.RequestException as e:
             raise Exception(f"GET request failed: {e}")
