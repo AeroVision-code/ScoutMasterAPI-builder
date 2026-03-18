@@ -1,3 +1,6 @@
+import os
+
+
 class Layers:
     def layers(self, field_id, layer_type_id=None, start_date=None, end_date=None):
         endpoint = f"layers/{field_id}/"
@@ -44,4 +47,40 @@ class Layers:
         
         data = self._get(endpoint)
         return data
+    
+
+    def layer_create(self, field_id, type_id, acquired_at, file_path):
+        """
+        Upload a new layer file to a field.
+
+        Args:
+            field_id (str): ID of the field.
+            type_id (str): Layer type ID.
+            acquired_at (str): Acquisition timestamp (ISO8601, e.g., 2025-11-21T10:15:30Z).
+            file_path (str): Path to the file to upload.
+
+        Returns:
+            dict: API response.
+        """
+        endpoint = f"fields/{field_id}/layers"
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Build multipart/form-data payload
+        files = {
+            "file": open(file_path, "rb")
+        }
+        data = {
+            "acquired_at": acquired_at,
+            "type_id": type_id
+        }
+
+        # Send POST request (assuming self._post can accept files)
+        response = self._post(endpoint, data=data, files=files)
+
+        # Close the file
+        files["file"].close()
+
+        return response
         

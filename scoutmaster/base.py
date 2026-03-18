@@ -14,6 +14,7 @@ class BaseAPI:
         self.host = f"https://dev-api.scoutmaster.nl/{self.version}/" if dev else f"https://api.scoutmaster.nl/{self.version}/"
         self.output_format = output_format
         self.lang = "en"
+        print(f"Initialized ScoutMaster API with host: {self.host}")
 
     def authenticate(self, client_id, client_secret):
         data = {'grant_type': 'client_credentials'}
