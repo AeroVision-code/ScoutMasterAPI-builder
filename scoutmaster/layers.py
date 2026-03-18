@@ -67,20 +67,12 @@ class Layers:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        # Build multipart/form-data payload
-        files = {
-            "file": open(file_path, "rb")
-        }
-        data = {
-            "acquired_at": acquired_at,
-            "type_id": type_id
-        }
+        files = {"file": open(file_path, "rb")}
+        data = {"acquired_at": acquired_at, "type_id": type_id}
 
-        # Send POST request (assuming self._post can accept files)
-        response = self._post(endpoint, data=data, files=files)
-
-        # Close the file
-        files["file"].close()
+        try:
+            response = self._post(endpoint, payload=data, files=files)
+        finally:
+            files["file"].close()  # always close file
 
         return response
-        
