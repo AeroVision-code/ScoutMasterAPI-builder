@@ -3,7 +3,7 @@ import os
 
 class Layers:
     def layers(self, field_id, layer_type_id=None, start_date=None, end_date=None):
-        endpoint = f"layers/{field_id}/"
+        endpoint = f"fields/{field_id}/layers"
         params = []
         if layer_type_id is not None:
             params.append(f"layer_type_id={layer_type_id}")
