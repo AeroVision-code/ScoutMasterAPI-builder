@@ -7,6 +7,10 @@ from shapely.wkt import loads as wkt_loads
 from shapely.wkb import loads as wkb_loads
 from shapely.geometry import mapping, shape
 import binascii
+from shapely.wkt import loads as wkt_loads
+from shapely.wkb import loads as wkb_loads
+from shapely.geometry import mapping, shape
+import binascii
 
 class BaseAPI:
     """Core HTTP requests and output formatting"""
@@ -130,6 +134,24 @@ class BaseAPI:
                 except Exception:
                     raise ValueError(f"Cannot parse geometry string: {geom[:100]}")
         raise ValueError(f"Unexpected geometry type: {type(geom)}")
+        
+    def _parse_geometry(self, geom):
+        """Parse geometry from string (WKT/WKB) or dict (GeoJSON) to shapely geometry."""
+        if geom is None:
+            return None
+        if isinstance(geom, dict):
+            return shape(geom)  # already GeoJSON
+        if isinstance(geom, str):
+            try:
+                # Try WKT first (e.g. "POLYGON ((...))")
+                return wkt_loads(geom)
+            except Exception:
+                try:
+                    # Try hex-encoded WKB
+                    return wkb_loads(binascii.unhexlify(geom))
+                except Exception:
+                    raise ValueError(f"Cannot parse geometry string: {geom[:100]}")
+        raise ValueError(f"Unexpected geometry type: {type(geom)}")
 
 
     def _format_output(self, data):
@@ -140,6 +162,7 @@ class BaseAPI:
             return pd.DataFrame(data)
         elif self.output_format == "gdf":
             if isinstance(data, dict) and "features" in data:
+                # Proper GeoJSON FeatureCollection — geometry already dicts
                 # Proper GeoJSON FeatureCollection — geometry already dicts
                 gdf = gpd.GeoDataFrame.from_features(data["features"])
             elif isinstance(data, list):
@@ -154,10 +177,12 @@ class BaseAPI:
                 item = dict(data)
                 item["geometry"] = self._parse_geometry(item.get("geometry"))
                 gdf = gpd.GeoDataFrame([item], geometry="geometry")
+                item = dict(data)
+                item["geometry"] = self._parse_geometry(item.get("geometry"))
+                gdf = gpd.GeoDataFrame([item], geometry="geometry")
             else:
                 raise ValueError("Invalid data format for gdf output")
 
-            # Set CRS only if not already defined
             if "geometry" in gdf.columns and gdf.crs is None:
                 gdf.set_crs(epsg=4326, inplace=True)
             return gdf
