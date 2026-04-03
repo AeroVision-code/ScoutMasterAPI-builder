@@ -157,7 +157,8 @@ class BaseAPI:
             else:
                 raise ValueError("Invalid data format for gdf output")
 
-            if gdf.crs is None:
+            # Set CRS only if not already defined
+            if "geometry" in gdf.columns and gdf.crs is None:
                 gdf.set_crs(epsg=4326, inplace=True)
             return gdf
         elif self.output_format == "geojson":

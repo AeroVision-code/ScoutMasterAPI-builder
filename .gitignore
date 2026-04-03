@@ -41,3 +41,7 @@ dist/
 
 
 data/output/*
+.project
+.pydevproject
+docs
+.settings/org.eclipse.core.resources.prefs
