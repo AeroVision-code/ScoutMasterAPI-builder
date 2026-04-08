@@ -35,7 +35,7 @@ class Cultivations:
             return data
         elif self.output_format == "df":
             # Convert the 'tsum' list of dicts into a DataFrame
-            if len(data) == 0: return pd.DataFrame()
+            if len(data) == 0 or len(data["tsum"]) == 0: return pd.DataFrame()
             df = pd.DataFrame(data['tsum'])
 
             # Optional: convert 'date' to datetime
