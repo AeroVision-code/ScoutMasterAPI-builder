@@ -16,6 +16,17 @@ class Layers:
         data = self._get(endpoint)
         return self._format_output(data)
     
+    def layer_by_id(self, layer_id):
+        endpoint = f"layers/{layer_id}"
+        data = self._get(endpoint)
+        return self._format_output(data)
+    
+    def layer_export(self, layer_id, format="png"):
+        endpoint = f"layers/{layer_id}/export"
+        endpoint += f"?format={format}"
+        data = self._get(endpoint)
+        return data
+    
     def layers_uploadurl(self, field_id, layer_type_id, acquired_at):
         """
         POST a layer upload URL request (all fields mandatory).
@@ -42,12 +53,9 @@ class Layers:
         return data
     
     def layers_rasters(self, layer_id):
-    
         endpoint = f"layers/{layer_id}/raster"
-        
         data = self._get(endpoint)
         return data
-    
 
     def layer_create(self, field_id, type_id, acquired_at, file_path):
         endpoint = f"fields/{field_id}/layers"
