@@ -3,6 +3,7 @@ import geopandas as gpd
 from requests.auth import HTTPBasicAuth
 import requests
 import json
+from warnings import warn
 from shapely.wkt import loads as wkt_loads
 from shapely.wkb import loads as wkb_loads
 from shapely.geometry import mapping, shape
@@ -63,9 +64,13 @@ class BaseAPI:
                 count = response_json.get("count", len(data))
             return data
         except requests.exceptions.RequestException as e:
-            raise Exception(f"GET request failed: {e}")
-        
-
+            rtn_text = response.text.lower()
+            code = response.status_code
+            if (code // 100 == 4) and ("not found" in rtn_text) or ("validation failed" in rtn_text):
+                warn(response.text)
+                return []
+            else:
+                raise Exception(f"GET request failed: {e}")
 
     def _post(self, endpoint, payload=None, files=None):
         """
