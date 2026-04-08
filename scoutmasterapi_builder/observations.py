@@ -14,7 +14,7 @@ class Observations:
         return self._format_output(data)
     
     def observation_by_id(self, observation_id):
-        endpoint = f"projects/{observation_id}"
+        endpoint = f"observations/{observation_id}"
         params = {}
         if self.output_format in ["geojson", "gdf"]:
             params["output"] = "geojson"
@@ -23,8 +23,8 @@ class Observations:
         data = self._get(endpoint, params=params)
         return self._format_output(data)
     
-    def observation_values(self):
-        endpoint = f"projects/{observation_id}/values"
+    def observation_values(self, observation_id):
+        endpoint = f"observations/{observation_id}/values"
         params = {}
         if self.output_format in ["geojson", "gdf"]:
             params["output"] = "geojson"
