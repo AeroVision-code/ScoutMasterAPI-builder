@@ -4,8 +4,7 @@ import requests
 
 class ObservationsParameters:
     def observations_parameters(self):
-        endpoint = f"observations/parameters"
-
+        endpoint = f"observation-parameters"
 
         # Pass params to _get
         data = self._get(endpoint)
