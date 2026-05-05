@@ -3,6 +3,13 @@ import pandas as pd
 
 class Cultivations:
     def cultivations(self, project_id):
+        """
+        Get all cultivation types that are practised within the project.
+        Args:
+            project_id (str): The ID of the project
+        Returns:
+            pd.DataFrame or list: Cultivations as DataFrame or JSON list.
+        """
         endpoint = f"projects/{project_id}/calendars"
         params = {}
         if self.output_format in ["geojson", "gdf"]:
@@ -13,6 +20,13 @@ class Cultivations:
         return self._format_output(data)
     
     def cultivations_by_field(self, field_id):
+        """
+        Get all cultivations carried out on the field.
+        Args:
+            field_id (str): The ID of the field
+        Returns:
+            pd.DataFrame or list: Cultivations as DataFrame or JSON list.
+        """
         endpoint = f"fields/{field_id}/calendars"
         params = {}
         if self.output_format in ["geojson", "gdf"]:
@@ -23,13 +37,27 @@ class Cultivations:
         return self._format_output(data)
 
     def cultivations_create(self, field_id, cultivation_data):
-        endpoint = f"fields/{field_id}/calendar"
+        """
+        Create a new cultivation on the specified field.
+        Args:        
+            field_id (str): The ID of the field
+            cultivation_data: specification of the intended cultivation
+        Returns:
+            pd.DataFrame or dict: Created cultivation.
+        """        
+        endpoint = f"fields/{field_id}/calendars"
         data = self._post(endpoint, cultivation_data)
         return self._format_output(data)
     
     def cultivations_tsum(self, cultivation_id):
+        """
+        Get data on the given cultivation - including tsum values
+        Args:
+            cultivation_id (str): The ID of the cultivation
+        Returns:
+            pd.DataFrame or list: DataFrame or JSON list with data on the given cultivation
+        """
         endpoint = f"calendars/{cultivation_id}/tsum"
-
         data = self._get(endpoint)
         if self.output_format == "json":
             return data
