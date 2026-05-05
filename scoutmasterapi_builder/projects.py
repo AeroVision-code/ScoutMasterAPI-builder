@@ -3,6 +3,12 @@ import mimetypes
 
 class Projects:
     def projects(self):
+        """
+        Get data on all projects      
+        Returns:
+            pd.DataFrame or list: DataFrame or JSON list with data on all 
+            projects as DataFrame.
+        """
         try: 
             endpoint = "projects/"
             data = self._get(endpoint)
@@ -39,6 +45,14 @@ class Projects:
             raise Exception(f"Request failed: {e}")
         
     def project_by_id(self, project_id):
+        """
+        Get data on the given project
+        Args:
+            project_id (str): The ID of the project
+        Returns:
+            pd.DataFrame or list: DataFrame or JSON list with data on the 
+            project in the form of a DataFrame
+        """
         try:
             endpoint = f"projects/{project_id}"
             data = self._get(endpoint)
@@ -46,8 +60,6 @@ class Projects:
             
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
-        
-        
         
     def project_uploadurl(self, project_id):
         """

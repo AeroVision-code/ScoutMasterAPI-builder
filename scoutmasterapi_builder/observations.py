@@ -4,6 +4,14 @@ import requests
 
 class Observations:
     def observations(self, project_id):
+        """
+        Get all observations relevant for the given project
+        Args:
+            project_id (str): The ID of the project
+        Returns:
+            pd.DataFrame or list: DataFrame or JSON list with all data and 
+            metadata pertaining to the observations.
+        """
         endpoint = f"projects/{project_id}/observations"
         params = {}
         if self.output_format in ["geojson", "gdf"]:
@@ -14,6 +22,14 @@ class Observations:
         return self._format_output(data)
     
     def observation_by_id(self, observation_id):
+        """
+        Get all data and metadata for the given observation
+        Args:
+            observation_id (str): The ID of the observation
+        Returns:
+            pd.DataFrame or list: DataFrame or JSON list with all data and 
+            metadata pertaining to the observation.
+        """        
         endpoint = f"observations/{observation_id}"
         params = {}
         if self.output_format in ["geojson", "gdf"]:
@@ -24,6 +40,14 @@ class Observations:
         return self._format_output(data)
     
     def observation_values(self, observation_id):
+        """
+        Get the values that make up the given observation
+        Args:
+            observation_id (str): The ID of the observation
+        Returns:
+            pd.DataFrame or list: DataFrame or JSON list with all data 
+            pertaining to the observation.
+        """        
         endpoint = f"observations/{observation_id}/values"
         params = {}
         if self.output_format in ["geojson", "gdf"]:
