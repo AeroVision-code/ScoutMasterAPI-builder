@@ -82,6 +82,7 @@ class Projects:
         data = self._post(endpoint)
         return data
     
+    # TODO: resolve issue with 2 methods called "project_upload_logo" - last 1 was commented out
     def project_upload_logo(self, project_id: str, file_path: str):
         """
         Upload a logo for a project using the presigned URL from the backend.
@@ -115,16 +116,17 @@ class Projects:
 
         # 4️⃣ Return metadata
         return {"file_key": file_key, "public_url": public_url}
-        
+    
+    """
     def project_upload_logo(self, project_id, file_path):
-        """
-        Upload a logo file for a specific project.
-        
-        Steps:
-        1. Request presigned URL from API
-        2. Upload file to S3 using PUT
-        3. Return final metadata result from API if needed
-        """
+        #
+        # Upload a logo file for a specific project.
+        #
+        # Steps:
+        # 1. Request presigned URL from API
+        # 2. Upload file to S3 using PUT
+        # 3. Return final metadata result from API if needed
+
         self._check_auth()
 
         # 1️⃣ Request presigned URL
@@ -157,5 +159,4 @@ class Projects:
             }
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
-
-        
+    """
