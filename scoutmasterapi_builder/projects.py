@@ -1,5 +1,8 @@
 import requests
 import mimetypes
+import os.path
+import datetime
+import pandas as pd
 
 class Projects:
     def projects(self):
@@ -17,7 +20,6 @@ class Projects:
             raise Exception(f"Request failed: {e}")
     
     def project_create(self, user_id, name, abbreviation=None):
-
         """
         Create new project
 
@@ -61,7 +63,7 @@ class Projects:
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
         
-    def project_uploadurl(self, project_id):
+    def project_upload_logo(self, project_id: str, file_path: str):
         """
         POST a layer upload URL request (all fields mandatory).
 
@@ -73,90 +75,33 @@ class Projects:
         Returns:
             Formatted response (DataFrame or dict) depending on self.output_format.
         """
+        # Initialise
+        if self.output_format == "df": response = pd.DataFrame()
+        else: response = {}
         self._check_auth()
-        endpoint = f"projects/{project_id}/logo/upload-url"
-
-
-
-        # Send POST request
-        data = self._post(endpoint)
-        return data
-    
-    # TODO: resolve issue with 2 methods called "project_upload_logo" - last 1 was commented out
-    def project_upload_logo(self, project_id: str, file_path: str):
-        """
-        Upload a logo for a project using the presigned URL from the backend.
-
-        Args:
-            project_id: The project ID to upload the logo for.
-            file_path: Local path to the logo file.
-
-        Returns:
-            Dict containing the file_key and public_url.
-        """
-        # 1️⃣ Get presigned URL from backend
-        upload_data = self.project_uploadurl(project_id)
-        upload_url = upload_data["upload_url"]
-        file_key = upload_data["file_key"]
-        public_url = upload_data["public_url"]
-
-        # 2️⃣ Determine MIME type
-        mime_type, _ = mimetypes.guess_type(file_path)
-        if not mime_type:
-            mime_type = "application/octet-stream"
-
-        # 3️⃣ Upload the file to S3
-        with open(file_path, "rb") as f:
-            response = requests.put(upload_url, data=f, headers={"Content-Type": mime_type})
-
-        if response.status_code not in (200, 201):
-            raise Exception(f"S3 upload failed: {response.status_code} {response.text}")
-
-        print("✅ Logo uploaded successfully!")
-
-        # 4️⃣ Return metadata
-        return {"file_key": file_key, "public_url": public_url}
-    
-    """
-    def project_upload_logo(self, project_id, file_path):
-        #
-        # Upload a logo file for a specific project.
-        #
-        # Steps:
-        # 1. Request presigned URL from API
-        # 2. Upload file to S3 using PUT
-        # 3. Return final metadata result from API if needed
-
-        self._check_auth()
-
-        # 1️⃣ Request presigned URL
-        endpoint = f"projects/{project_id}/logo/upload-url"
-
-        try:
-            presign_data = self._post(endpoint)
-            print(presign_data)
-            upload_url = presign_data["upload_url"]
-            public_url = presign_data["public_url"]
-            file_key = presign_data["file_key"]
-
-            # 2️⃣ Upload file directly to S3 using PUT
+        endpoint = f"projects/{project_id}/logo"
         
-            mime_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+        # Check input
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
 
-            with open(file_path, "rb") as file:
-                upload_res = requests.put(upload_url, data=file, headers={"Content-Type": mime_type})
+        # Detect mimetype from file extension
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if mime_type is None:
+            mime_type = 'application/octet-stream'
 
-            if upload_res.status_code not in (200, 201):
-                raise Exception(f"S3 upload failed: {upload_res.status_code} {upload_res.text}")
+        # Prepare some extra data
+        dt_now = datetime.datetime.now(datetime.UTC)
+        data = {"acquired_at": dt_now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"}
 
-            print("Logo uploaded successfully!")
-
-            # 3️⃣ Return metadata including final public URL
-            return {
-                "project_id": project_id,
-                "file_key": file_key,
-                "public_url": public_url
+        # Explicitly set filename and content type before posting the file content
+        with open(file_path, "rb") as fh:
+            files = {
+                "file": (
+                    os.path.basename(file_path), # filename
+                    fh,                          # file handle
+                    mime_type,                   # content type
+                )
             }
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Request failed: {e}")
-    """
+            response = self._post(endpoint, payload=data, files=files)
+        return response
