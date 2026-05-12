@@ -1,78 +1,140 @@
 import mimetypes
 import os
 
+
 class Layers:
     def layers(self, field_id, layer_type_id=None, start_date=None, end_date=None):
         endpoint = f"fields/{field_id}/layers"
-        params = []
+        params = {}
         if layer_type_id is not None:
-            params.append(f"layer_type_id={layer_type_id}")
+            params["layer_type_id"] = layer_type_id
         if start_date is not None:
-            params.append(f"start_date={start_date}")
+            params["start_date"] = start_date
         if end_date is not None:
-            params.append(f"end_date={end_date}")
-        if params:
-            endpoint += "?" + "&".join(params)
-        data = self._get(endpoint)
+            params["end_date"] = end_date
+        data = self._get(endpoint, params=params)
         return self._format_output(data)
-    
+
     def layers_uploadurl(self, field_id, layer_type_id, acquired_at):
-        """
-        POST a layer upload URL request (all fields mandatory).
-
-        Args:
-            field_id (str): The ID of the field.
-            layer_type_id (str): The layer type ID.
-            acquired_at (str): Acquisition timestamp (ISO8601, e.g., 2025-11-21T10:15:30Z).
-
-        Returns:
-            Formatted response (DataFrame or dict) depending on self.output_format.
-        """
+        """Request a presigned upload URL for a layer file."""
         endpoint = "layers/upload-url"
-
-        # Build JSON payload (all mandatory)
         payload = {
             "field_id": field_id,
             "layer_type_id": layer_type_id,
-            "acquired_at": acquired_at
+            "acquired_at": acquired_at,
         }
-
-        # Send POST request
         data = self._post(endpoint, payload=payload)
         return data
-    
+
     def layers_rasters(self, layer_id):
-    
         endpoint = f"layers/{layer_id}/raster"
-        
         data = self._get(endpoint)
         return data
-    
 
     def layer_create(self, field_id, type_id, acquired_at, file_path):
-        endpoint = f"fields/{field_id}/layers"
+        """
+        Upload a new layer file for a field.
 
+        Args:
+            field_id (str): UUID of the field.
+            type_id (str): UUID of the layer type.
+            acquired_at (str): ISO8601 acquisition timestamp.
+            file_path (str): Local path to the layer file.
+
+        Returns:
+            list or dict: Created layer data.
+        """
+        endpoint = f"fields/{field_id}/layers"
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
-
-        # ✅ detect mimetype from file extension
         mime_type, _ = mimetypes.guess_type(file_path)
         if mime_type is None:
-            mime_type = 'application/octet-stream'
-
-        # ✅ explicitly set filename and content type
+            mime_type = "application/octet-stream"
         files = {
             "file": (
-                os.path.basename(file_path),  # filename
-                open(file_path, "rb"),         # file handle
-                mime_type,                     # content type
+                os.path.basename(file_path),
+                open(file_path, "rb"),
+                mime_type,
             )
         }
         data = {"acquired_at": acquired_at, "type_id": type_id}
-
         try:
             response = self._post(endpoint, payload=data, files=files)
         finally:
-            files["file"][1].close()  # close the file handle (index 1 in tuple)
-
+            files["file"][1].close()
         return response
+
+    def layer_by_id(self, layer_id):
+        """
+        Get a single layer by its numeric ID.
+
+        Args:
+            layer_id (int): Numeric layer ID.
+
+        Returns:
+            dict: Layer data.
+        """
+        endpoint = f"layers/{layer_id}"
+        data = self._get(endpoint)
+        return data
+
+    def layer_delete(self, layer_id):
+        """
+        Delete a layer by its numeric ID.
+
+        Args:
+            layer_id (int): Numeric layer ID.
+
+        Returns:
+            dict: Contains 'message' confirming deletion.
+        """
+        endpoint = f"layers/{layer_id}"
+        data = self._delete(endpoint)
+        return data
+
+    def layer_metadata(self, layer_id):
+        """
+        Get metadata for a layer.
+
+        Args:
+            layer_id (int): Numeric layer ID.
+
+        Returns:
+            dict: Layer metadata.
+        """
+        endpoint = f"layers/{layer_id}/metadata"
+        data = self._get(endpoint)
+        return data
+
+    def layer_export(self, layer_id, format):
+        """
+        Request an export download URL for a layer.
+
+        Args:
+            layer_id (int): Numeric layer ID.
+            format (str): Export format — one of 'tiff', 'png', 'geojson',
+                          'shapefile', 'geopackage', 'csv', 'svg'.
+
+        Returns:
+            dict: Export data including download_url, filename, format, expires_in.
+        """
+        allowed = {"tiff", "png", "geojson", "shapefile", "geopackage", "csv", "svg"}
+        if format not in allowed:
+            raise ValueError(f"format must be one of: {sorted(allowed)}")
+        endpoint = f"layers/{layer_id}/export"
+        data = self._get(endpoint, params={"format": format})
+        return data
+
+    def layer_statistics(self, layer_id):
+        """
+        Trigger statistics calculation for a layer.
+
+        Args:
+            layer_id (int): Numeric layer ID.
+
+        Returns:
+            dict: Updated layer data including computed statistics.
+        """
+        endpoint = f"layers/{layer_id}/statistics"
+        data = self._post(endpoint)
+        return data
