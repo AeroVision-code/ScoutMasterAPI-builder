@@ -35,13 +35,13 @@ secrets.json
 
 # Distribution / packaging
 build/
-dist/
 *.egg-info/
 .eggs/
 
 
 data/output/*
+docs
 .project
 .pydevproject
-docs
-.settings/org.eclipse.core.resources.prefs
+*.tar.gz
+.settings
