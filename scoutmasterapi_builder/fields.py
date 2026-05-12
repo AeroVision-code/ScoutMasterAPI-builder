@@ -60,7 +60,6 @@ class Fields:
     def fields_create(self, project_id, field_data):
         """
         Create a new field in the specified project.
-
         Args:
             project_id (str): The ID of the project.
             field_data (dict): Field data with required fields:
@@ -72,11 +71,9 @@ class Fields:
                     },
                     "geometry": { "type": "Polygon", "coordinates": [[x, y]] },
                 }
-
         Returns:
             pd.DataFrame or dict: Created field.
         """
-      
         endpoint = f"projects/{project_id}/fields"
         try:
             data = self._post(endpoint, field_data)
