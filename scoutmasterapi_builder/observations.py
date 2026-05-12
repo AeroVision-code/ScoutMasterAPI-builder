@@ -164,4 +164,68 @@ class Observations:
                     return {"status": "exists", "message": "Observation value already exists."}
             # re-raise other exceptions
             raise
-        
+
+    def field_observations(self, field_id, page=None, limit=None, order=None,
+                           lang=None, sort_by=None, crs=None, output_format=None):
+        """
+        Get all observations for a field.
+        Args:
+            field_id (str): UUID of the field.
+            page (int, optional): Page number.
+            limit (int, optional): Results per page.
+            order (str, optional): 'asc' or 'desc'.
+            lang (str, optional): Language code.
+            sort_by (str, optional): Column to sort by.
+            crs (int, optional): Target CRS EPSG code (default 4326).
+            output_format (str, optional): 'wkt' or 'geojson'.
+        Returns:
+            DataFrame, GeoDataFrame, or dict.
+        """
+        endpoint = f"fields/{field_id}/observations"
+        params = {}
+        if page: params["page"] = page
+        if limit: params["limit"] = limit
+        if order: params["order"] = order
+        if lang: params["lang"] = lang
+        if sort_by: params["sort_by"] = sort_by
+        if crs: params["crs"] = crs
+        if output_format:
+            params["output_format"] = output_format
+        elif self.output_format in ("geojson", "gdf"):
+            params["output_format"] = "geojson"
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
+
+    def observation_update(self, observation_id, reference_code=None, geometry=None,
+                           observed_at=None, research_category_id=None):
+        """
+        Update an observation.
+        Args:
+            observation_id (str): UUID of the observation.
+            reference_code (str, optional): New reference code.
+            geometry (dict or str, optional): Updated geometry.
+            observed_at (str, optional): ISO8601 observation timestamp.
+            research_category_id (int or None, optional): Research category ID.
+        Returns:
+            dict: Updated observation data.
+        """
+        endpoint = f"observations/{observation_id}"
+        payload = {}
+        if reference_code is not None: payload["reference_code"] = reference_code
+        if geometry is not None: payload["geometry"] = geometry
+        if observed_at is not None: payload["observed_at"] = observed_at
+        if research_category_id is not None: payload["research_category_id"] = research_category_id
+        data = self._patch(endpoint, payload)
+        return data
+
+    def observation_delete(self, observation_id):
+        """
+        Delete an observation by ID.
+        Args:
+            observation_id (str): UUID of the observation.
+        Returns:
+            None (204 No Content).
+        """
+        endpoint = f"observations/{observation_id}"
+        self._delete(endpoint)
+

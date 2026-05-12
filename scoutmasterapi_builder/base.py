@@ -122,6 +122,68 @@ class BaseAPI:
         except requests.exceptions.RequestException as e:
             raise Exception(f"POST request failed: {e}")
         
+
+    def _patch(self, endpoint, payload=None):
+        """Internal helper to send a PATCH request to the API."""
+        self._check_auth()
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/json',
+        }
+        try:
+            response = requests.patch(
+                f"{self.host}{endpoint}",
+                headers=headers,
+                json=payload or {},
+            )
+            if response.content:
+                try:
+                    response_json = response.json()
+                except ValueError:
+                    raise Exception(
+                        f"PATCH request to {endpoint} did not return valid JSON. "
+                        f"Response content: {response.text}"
+                    )
+            else:
+                response_json = {}
+            if response.status_code in (200, 201):
+                return response_json.get("data", response_json)
+            else:
+                raise Exception(
+                    f"Failed PATCH request to {endpoint}: {response.status_code} {response.text}"
+                )
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"PATCH request failed: {e}")
+
+    def _delete(self, endpoint):
+        """Internal helper to send a DELETE request to the API."""
+        self._check_auth()
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/json',
+        }
+        try:
+            response = requests.delete(f"{self.host}{endpoint}", headers=headers)
+            if response.status_code == 204:
+                return None
+            if response.content:
+                try:
+                    response_json = response.json()
+                except ValueError:
+                    raise Exception(
+                        f"DELETE request to {endpoint} did not return valid JSON. "
+                        f"Response content: {response.text}"
+                    )
+            else:
+                response_json = {}
+            if response.status_code == 200:
+                return response_json.get("data", response_json)
+            else:
+                raise Exception(
+                    f"Failed DELETE request to {endpoint}: {response.status_code} {response.text}"
+                )
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"DELETE request failed: {e}")
     def _parse_geometry(self, geom):
         """Parse geometry from string (WKT/WKB) or dict (GeoJSON) to shapely geometry."""
         if geom is None:

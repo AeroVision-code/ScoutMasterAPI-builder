@@ -10,8 +10,28 @@ from .observationsparameters import ObservationsParameters
 from .cultivations import Cultivations
 from .users import Users
 from .subscriptions import Subscriptions
-from .services import Services
+from .services import Services, ResearchCategories
+from .reports import Reports
+from .invites import Invites
 
-class ScoutMasterAPI(BaseAPI, Projects, Fields, Crops, Layers, LayerTypes, Files, Observations, ObservationsParameters, Cultivations, Users, Subscriptions, Services):
+
+class ScoutMasterAPI(
+    BaseAPI,
+    Projects,
+    Fields,
+    Crops,
+    Layers,
+    LayerTypes,
+    Files,
+    Observations,
+    ObservationsParameters,
+    Cultivations,
+    Users,
+    Subscriptions,
+    Services,
+    ResearchCategories,
+    Reports,
+    Invites,
+):
     """Aggregates all topic classes into a single API object"""
     pass

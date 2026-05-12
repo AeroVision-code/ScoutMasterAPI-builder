@@ -1,6 +1,6 @@
 [project]
 name = "scoutmasterapi_builder"
-version = "0.0.3"
+version = "0.0.4"
 description = "ScoutMaster API client"
 readme = "README.md"
 license = "LicenseRef-Proprietary"
@@ -16,14 +16,17 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-	"python-dotenv>=1.0.0",
-	"geopandas>=1.0.0",
-	"ipython>=8.23.0",
-	"pandas>=2.3.0",
-	"numpy>=1.19.5",
+    "python-dotenv>=1.0.0",
+    "geopandas>=1.0.0",
+    "ipython>=8.23.0",
+    "pandas>=2.3.0",
+    "numpy>=1.19.5",
     "requests>=2.31.0",
-	"shapely>=2.1.2"
+    "shapely>=2.1.2"
 ]
+
+[tool.setuptools.packages.find]
+include = ["scoutmasterapi_builder*"]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
