@@ -105,3 +105,36 @@ class Projects:
             }
             response = self._post(endpoint, payload=data, files=files)
         return response
+
+    def project_update(self, project_id, name, abbreviation=None):
+        """
+        Update a project name and abbreviation.
+        Args:
+            project_id (str): UUID of the project.
+            name (str): New project name.
+            abbreviation (str, optional): New abbreviation. Defaults to first 2 chars of name.
+        Returns:
+            dict: Updated project data.
+        """
+        if abbreviation is None:
+            abbreviation = name[:2].upper()
+        endpoint = f"projects/{project_id}"
+        data = self._patch(endpoint, {"name": name, "abbreviation": abbreviation})
+        return data
+
+    def update_user_role(self, project_id, user_id, role):
+        """
+        Update the role of a user within a project.
+        Args:
+            project_id (str): UUID of the project.
+            user_id (str): ID of the user.
+            role (str): New role — 'member' or 'owner'.
+        Returns:
+            dict: Contains role, project_id, user_id and message.
+        """
+        if role not in ("member", "owner"):
+            raise ValueError("role must be 'member' or 'owner'")
+        endpoint = f"projects/{project_id}/users/{user_id}/role"
+        data = self._patch(endpoint, {"role": role})
+        return data
+

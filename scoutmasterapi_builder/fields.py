@@ -81,3 +81,33 @@ class Fields:
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
+
+    def field_update(self, field_id, name=None, geometry=None):
+        """
+        Update a field name and/or geometry.
+        Args:
+            field_id (str): UUID of the field.
+            name (str, optional): New field name.
+            geometry (dict or str, optional): New geometry as GeoJSON dict or WKT string.
+        Returns:
+            dict: Updated field data with message.
+        """
+        endpoint = f"fields/{field_id}"
+        payload = {}
+        if name is not None: payload["name"] = name
+        if geometry is not None: payload["geometry"] = geometry
+        data = self._patch(endpoint, payload)
+        return data
+
+    def field_delete(self, field_id):
+        """
+        Delete a field by ID.
+        Args:
+            field_id (str): UUID of the field.
+        Returns:
+            dict: Deleted field data with message.
+        """
+        endpoint = f"fields/{field_id}"
+        data = self._delete(endpoint)
+        return data
+

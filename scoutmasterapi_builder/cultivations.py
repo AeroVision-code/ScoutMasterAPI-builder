@@ -75,4 +75,34 @@ class Cultivations:
             df['field_id'] = data['field_id']
             
             return df
-    
+
+    def cultivation_update(self, calendar_id, crop_code=None, crop_variety_code=None, events=None):
+        """
+        Update a cultivation calendar.
+        Args:
+            calendar_id (str): ID of the cultivation calendar.
+            crop_code (int, optional): Updated crop code.
+            crop_variety_code (int, optional): Updated crop variety code.
+            events (list, optional): Updated list of event dicts with 'type' and 'date'.
+        Returns:
+            dict: Updated cultivation calendar.
+        """
+        endpoint = f"calendars/{calendar_id}"
+        payload = {}
+        if crop_code is not None: payload["crop_code"] = crop_code
+        if crop_variety_code is not None: payload["crop_variety_code"] = crop_variety_code
+        if events is not None: payload["events"] = events
+        data = self._patch(endpoint, payload)
+        return data
+
+    def cultivation_delete(self, calendar_id):
+        """
+        Delete a cultivation calendar.
+        Args:
+            calendar_id (str): ID of the cultivation calendar.
+        Returns:
+            None (204 No Content).
+        """
+        endpoint = f"calendars/{calendar_id}"
+        self._delete(endpoint)
+

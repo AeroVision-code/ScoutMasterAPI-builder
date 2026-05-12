@@ -146,3 +146,40 @@ class Layers:
         }
         data = self._post(endpoint, statistics)
         #TODO: complete!
+
+    def layer_delete(self, layer_id):
+        """
+        Delete a layer by its numeric ID.
+        Args:
+            layer_id (int): Numeric layer ID.
+        Returns:
+            dict: Contains 'message' confirming deletion.
+        """
+        endpoint = f"layers/{layer_id}"
+        data = self._delete(endpoint)
+        return data
+
+    def layer_metadata(self, layer_id):
+        """
+        Get metadata for a layer.
+        Args:
+            layer_id (int): Numeric layer ID.
+        Returns:
+            dict: Layer metadata.
+        """
+        endpoint = f"layers/{layer_id}/metadata"
+        data = self._get(endpoint)
+        return data
+
+    def layer_statistics(self, layer_id):
+        """
+        Trigger statistics calculation for a layer.
+        Args:
+            layer_id (int): Numeric layer ID.
+        Returns:
+            dict: Updated layer data including computed statistics.
+        """
+        endpoint = f"layers/{layer_id}/statistics"
+        data = self._post(endpoint)
+        return data
+
