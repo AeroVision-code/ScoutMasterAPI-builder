@@ -1,12 +1,33 @@
+[project]
+name = "scoutmasterapi_builder"
+version = "0.0.3"
+description = "ScoutMaster API client"
+readme = "README.md"
+license = "LicenseRef-Proprietary"
+license-files = [ "LICENSE" ]
+authors = [
+  {name="Rinus Vijftigschild", email="rinus.vijftigschild@aerovision.nl"},
+  {name="Steven Hoek", email="steven.hoek@aerovision.nl"}
+]
+requires-python = ">=3.9"
+keywords = ["geodata", "soil data", "field data"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+	"python-dotenv>=1.0.0",
+	"geopandas>=1.0.0",
+	"ipython>=8.23.0",
+	"pandas>=2.31.0",
+	"numpy>=2.3.0",
+    "requests>=2.31.0",
+	"shapely>=2.1.2"
+]
+
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[project]
-name = "scoutmaster-api"
-version = "0.1.0"
-description = "ScoutMaster API client"
-requires-python = ">=3.9"
-
-[tool.setuptools]
-packages = ["scoutmaster"]
+[project.urls]
+"Homepage" = "https://github.com/AeroVision-code/ScoutMasterAPI-builder"
