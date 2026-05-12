@@ -4,13 +4,13 @@ import os
 class Layers:
     def layers(self, field_id, layer_type_id=None, start_date=None, end_date=None):
         """
-        Get all layers for the given field possibly filtered by the given layer 
-            type, start date and end date 
+        Get all layers for the given field possibly filtered by the given layer
+            type, start date and end date
         Args:
             field_id (str): The ID of the field
             layer_type_id (str): The ID of the layer type of interest - if any
             start_date (str): the relevant start date - if any
-            end_date (str): the relevant end date - if any 
+            end_date (str): the relevant end date - if any
         Returns:
             pd.DataFrame or list: a DataFrame or JSON list with data on the relevant layers
         """
@@ -26,10 +26,10 @@ class Layers:
             endpoint += "?" + "&".join(params)
         data = self._get(endpoint)
         return self._format_output(data)
-    
+
     def layer_by_id(self, layer_id):
         """
-        Get layer by id 
+        Get layer by id
         Args:
             layer_id (str): The ID of the layer of interest
         Returns:
@@ -38,7 +38,7 @@ class Layers:
         endpoint = f"layers/{layer_id}"
         data = self._get(endpoint)
         return self._format_output(data)
-    
+
     def layer_export(self, layer_id, format="png"):
         """
         Get a URL of the image to download - in the specified format
@@ -52,7 +52,7 @@ class Layers:
         endpoint += f"?format={format}"
         data = self._get(endpoint)
         return data
-    
+
     def layers_uploadurl(self, field_id, layer_type_id, acquired_at):
         """
         POST a layer upload URL request (all fields mandatory).
@@ -76,7 +76,7 @@ class Layers:
         # Send POST request
         data = self._post(endpoint, payload=payload)
         return data
-    
+
     def layers_rasters(self, layer_id):
         """
         Not yet available
@@ -116,9 +116,33 @@ class Layers:
         }
         data = {"acquired_at": acquired_at, "type_id": type_id}
 
+        #TODO: Use with statement instead
         try:
             response = self._post(endpoint, payload=data, files=files)
         finally:
             files["file"][1].close()  # close the file handle (index 1 in tuple)
 
         return response
+
+    def layers_upload_stats(self, layer_id, data, path, preview):
+        """
+        Adds layer statistics
+        Args:
+            layer_id (str): The ID of the field
+            data (dict): metadata and statistics
+            path (str): path
+            preview (str): path to preview image
+        Returns:
+            An http response with a status code
+        """
+        endpoint = f"layers/{layer_id}/statistics"
+        statistics = {"message": "Bla bla",
+                      "data": data,
+                      "path": path,
+                      "preview": {
+                          "path": preview["path"],
+                          "format": preview["format"]
+                      }
+        }
+        data = self._post(endpoint, statistics)
+        #TODO: complete!
