@@ -85,7 +85,7 @@ class Layers:
         data = self._get(endpoint)
         return data
 
-    def layer_create(self, field_id, type_id, acquired_at, file_path):
+    def layer_create(self, field_id, type_id, acquired_at, file_path, acquired_at_end_date=None):
         """
         Create a layer
         Args:
@@ -114,9 +114,10 @@ class Layers:
                 mime_type,                     # content type
             )
         }
-        data = {"acquired_at": acquired_at, "type_id": type_id}
+        data = {"acquired_at": acquired_at,  "type_id": type_id}
+        if acquired_at_end_date is not None:
+            data["acquired_at_end_date"] = acquired_at_end_date
 
-        #TODO: Use with statement instead
         try:
             response = self._post(endpoint, payload=data, files=files)
         finally:
