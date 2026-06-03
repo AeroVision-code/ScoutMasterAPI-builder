@@ -13,6 +13,8 @@ from .subscriptions import Subscriptions
 from .services import Services, ResearchCategories
 from .reports import Reports
 from .invites import Invites
+from .environments import Environments
+from .benchmarking import Benchmarking
 
 
 class ScoutMasterAPI(
@@ -32,6 +34,8 @@ class ScoutMasterAPI(
     ResearchCategories,
     Reports,
     Invites,
+    Environments,
+    Benchmarking,
 ):
     """Aggregates all topic classes into a single API object"""
     pass

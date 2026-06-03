@@ -53,38 +53,6 @@ class Layers:
         data = self._get(endpoint)
         return data
 
-    def layers_uploadurl(self, field_id, layer_type_id, acquired_at):
-        """
-        POST a layer upload URL request (all fields mandatory).
-
-        Args:
-            field_id (str): The ID of the field.
-            layer_type_id (str): The layer type ID.
-            acquired_at (str): Acquisition timestamp (ISO8601, e.g., 2025-11-21T10:15:30Z).
-        Returns:
-            Formatted response (DataFrame or dict) depending on self.output_format.
-        """
-        endpoint = "layers/upload-url"
-
-        # Build JSON payload (all mandatory)
-        payload = {
-            "field_id": field_id,
-            "layer_type_id": layer_type_id,
-            "acquired_at": acquired_at
-        }
-
-        # Send POST request
-        data = self._post(endpoint, payload=payload)
-        return data
-
-    def layers_rasters(self, layer_id):
-        """
-        Not yet available
-        """
-        endpoint = f"layers/{layer_id}/raster"
-        data = self._get(endpoint)
-        return data
-
     def layer_create(self, field_id, type_id, acquired_at, file_path, acquired_at_end_date=None):
         """
         Create a layer
@@ -172,6 +140,19 @@ class Layers:
         data = self._get(endpoint)
         return data
 
+    def layer_metadata_post(self, layer_id, metadata):
+        """
+        Post/update metadata for a layer.
+        Args:
+            layer_id (int): Numeric layer ID.
+            metadata (dict): Arbitrary key-value metadata to store.
+        Returns:
+            dict: Contains 'message' and 's3_key'.
+        """
+        endpoint = f"layers/{layer_id}/metadata"
+        data = self._post(endpoint, payload=metadata)
+        return data
+
     def layer_statistics(self, layer_id):
         """
         Trigger statistics calculation for a layer.
@@ -182,5 +163,20 @@ class Layers:
         """
         endpoint = f"layers/{layer_id}/statistics"
         data = self._post(endpoint)
+        return data
+
+    def layer_histogram(self, layer_id, bins=50, band=1):
+        """
+        Get a histogram of pixel values for a layer.
+        Args:
+            layer_id (int): Numeric layer ID.
+            bins (int, optional): Number of histogram bins (default 50).
+            band (int, optional): Band index (default 1).
+        Returns:
+            dict: Histogram data including bins, total_pixels, valid_pixels, min_value, max_value.
+        """
+        endpoint = f"layers/{layer_id}/histogram"
+        params = {"bins": bins, "band": band}
+        data = self._get(endpoint, params=params)
         return data
 
