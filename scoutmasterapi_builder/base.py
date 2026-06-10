@@ -226,6 +226,8 @@ class BaseAPI:
         if self.output_format == "json":
             return data
         elif self.output_format == "df":
+            if isinstance(data, dict) and "features" not in data:
+                data = [data]  # normalize single object to list
             return pd.DataFrame(data)
         elif self.output_format == "gdf":
             if isinstance(data, dict) and "features" in data:
