@@ -1,5 +1,10 @@
+from .base import conceptual_class
+
+
+@conceptual_class
 class Subscriptions:
-    def subscriptions_by_project(self, project_id, page=None, limit=None, order=None, sort_by=None):
+    def subscriptions_by_project(self, project_id, page=None, limit=None, order=None,
+                                 sort_by=None, subscription_id=None):
         """
         Get all subscriptions for a project.
         Args:
@@ -8,6 +13,7 @@ class Subscriptions:
             limit (int, optional): Results per page.
             order (str, optional): 'asc' or 'desc'.
             sort_by (str, optional): 'created_at' or 'updated_at'.
+            subscription_id (int or list[int], optional): Filter by subscription type ID(s).
         Returns:
             DataFrame or dict: Paginated subscriptions.
         """
@@ -17,19 +23,32 @@ class Subscriptions:
         if limit: params["limit"] = limit
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
+        if subscription_id is not None: params["subscription_id"] = subscription_id
         data = self._get(endpoint, params=params)
         return self._format_output(data)
 
-    def subscriptions_by_field(self, field_id):
+    def subscriptions_by_field(self, field_id, page=None, limit=None, order=None,
+                               sort_by=None, subscription_id=None):
         """
         Get all subscriptions for a field.
         Args:
             field_id (str): UUID of the field.
+            page (int, optional): Page number (default 1).
+            limit (int, optional): Results per page.
+            order (str, optional): 'asc' or 'desc'.
+            sort_by (str, optional): 'created_at' or 'updated_at'.
+            subscription_id (int or list[int], optional): Filter by subscription type ID(s).
         Returns:
             list or DataFrame: Subscriptions for the field.
         """
         endpoint = f"fields/{field_id}/subscriptions"
-        data = self._get(endpoint)
+        params = {}
+        if page: params["page"] = page
+        if limit: params["limit"] = limit
+        if order: params["order"] = order
+        if sort_by: params["sort_by"] = sort_by
+        if subscription_id is not None: params["subscription_id"] = subscription_id
+        data = self._get(endpoint, params=params)
         return self._format_output(data)
 
     def subscription_create(self, field_id, user_id, subscription_id, started_at=None, ended_at=None):

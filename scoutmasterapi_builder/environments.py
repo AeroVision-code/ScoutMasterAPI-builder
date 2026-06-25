@@ -1,3 +1,7 @@
+from .base import conceptual_class
+
+
+@conceptual_class
 class Environments:
     # ── Environment CRUD ────────────────────────────────────────────────────
 

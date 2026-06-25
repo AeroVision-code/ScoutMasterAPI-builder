@@ -1,6 +1,9 @@
 import requests
 
+from .base import conceptual_class
 
+
+@conceptual_class
 class Users:
     # ── Platform-level user management ──────────────────────────────────────
 

@@ -1,38 +1,46 @@
 import pandas as pd
 
+from .base import conceptual_class
 
+
+@conceptual_class
 class Cultivations:
-    def cultivations(self, project_id):
+    def cultivations(self, project_id, page=None, limit=None, order=None,
+                     lang=None, sort_by=None):
         """
         Get all cultivation types that are practised within the project.
         Args:
             project_id (str): The ID of the project
+            page (int, optional): Page number (default 1).
+            limit (int, optional): Results per page.
+            order (str, optional): 'asc' or 'desc'.
+            lang (str, optional): Language code ('en', 'nl', 'de', 'fr').
+            sort_by (str, optional): 'created_at' or 'updated_at'.
         Returns:
             pd.DataFrame or list: Cultivations as DataFrame or JSON list.
         """
         endpoint = f"projects/{project_id}/calendars"
         params = {}
-        if self.output_format in ["geojson", "gdf"]:
-            params["output"] = "geojson"
-
-        # Pass params to _get
+        if page: params["page"] = page
+        if limit: params["limit"] = limit
+        if order: params["order"] = order
+        if lang: params["lang"] = lang
+        if sort_by: params["sort_by"] = sort_by
         data = self._get(endpoint, params=params)
         return self._format_output(data)
-    
-    def cultivations_by_field(self, field_id):
+
+    def cultivations_by_field(self, field_id, lang=None):
         """
         Get all cultivations carried out on the field.
         Args:
             field_id (str): The ID of the field
+            lang (str, optional): Language code ('en', 'nl', 'de', 'fr').
         Returns:
             pd.DataFrame or list: Cultivations as DataFrame or JSON list.
         """
         endpoint = f"fields/{field_id}/calendars"
         params = {}
-        if self.output_format in ["geojson", "gdf"]:
-            params["output"] = "geojson"
-
-        # Pass params to _get
+        if lang: params["lang"] = lang
         data = self._get(endpoint, params=params)
         return self._format_output(data)
 
