@@ -1,3 +1,7 @@
+from .base import conceptual_class
+
+
+@conceptual_class
 class Invites:
     def project_invite_send(self, project_id, email, role, message=None):
         """

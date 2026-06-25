@@ -1,3 +1,10 @@
+import mimetypes
+import os
+
+from .base import conceptual_class
+
+
+@conceptual_class
 class Services:
     def services(self, lang=None):
         """
@@ -55,6 +62,7 @@ class Services:
         return data
 
 
+@conceptual_class
 class ResearchCategories:
     def research_categories(self, page=None, limit=None, order=None, sort_by=None):
         """
@@ -75,3 +83,23 @@ class ResearchCategories:
         if sort_by: params["sort_by"] = sort_by
         data = self._get(endpoint, params=params)
         return self._format_output(data)
+
+    def validate_report(self, research_category_id, file_path):
+        """
+        Validate that a PDF matches the expected format for a research category.
+        Args:
+            research_category_id (int): Numeric research category ID.
+            file_path (str): Local path to the PDF to validate.
+        Returns:
+            dict: ReportValidationResult (valid, category, reason, data).
+        """
+        self._check_auth()
+        endpoint = f"research-categories/{research_category_id}/reports/validate"
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if mime_type is None:
+            mime_type = "application/octet-stream"
+        with open(file_path, "rb") as fh:
+            files = {"file": (os.path.basename(file_path), fh, mime_type)}
+            return self._post(endpoint, files=files)

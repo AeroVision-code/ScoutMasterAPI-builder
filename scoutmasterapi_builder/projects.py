@@ -4,42 +4,65 @@ import os.path
 import datetime
 import pandas as pd
 
+from .base import conceptual
+
 class Projects:
-    def projects(self):
+    def projects(self, page=None, limit=None, order=None, lang=None, sort_by=None):
         """
-        Get data on all projects      
+        Get data on all projects.
+        Args:
+            page (int, optional): Page number (default 1).
+            limit (int, optional): Results per page. Omit to return all.
+            order (str, optional): 'asc' or 'desc'.
+            lang (str, optional): Language code ('en', 'nl', 'de', 'fr').
+            sort_by (str, optional): 'name', 'created_at' or 'updated_at'.
         Returns:
-            pd.DataFrame or list: DataFrame or JSON list with data on all 
+            pd.DataFrame or list: DataFrame or JSON list with data on all
             projects as DataFrame.
         """
-        try: 
+        try:
             endpoint = "projects/"
-            data = self._get(endpoint)
+            params = {}
+            if page: params["page"] = page
+            if limit: params["limit"] = limit
+            if order: params["order"] = order
+            if lang: params["lang"] = lang
+            if sort_by: params["sort_by"] = sort_by
+            data = self._get(endpoint, params=params)
             return self._format_output(data)
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
-    
-    def project_create(self, user_id, name, abbreviation=None):
+
+    def project_create(self, user_id, name, abbreviation=None, environment_id=None,
+                       description=None):
         """
-        Create new project
+        Create new project.
 
         Args:
-            project_collection_id (str): The ID of the project collection.
-            fields_data (list): List of field dicts to create.
+            user_id (str): User ID of the creator (must be a project member).
+            name (str): Project name.
+            abbreviation (str, optional): Defaults to first 2 chars of name.
+            environment_id (str): Environment the project belongs to. Required by
+                the API; must reference an existing environment.
+            description (str, optional): Project description.
 
         Returns:
-            pd.DataFrame or dict: Created fields as DataFrame or JSON.
+            pd.DataFrame or dict: Created project as DataFrame or JSON.
         """
         try:
             endpoint = f"projects"
             if abbreviation is None:
                 abbreviation = name[:2].upper()
-                
+
             project_data = {
                 "user_id": user_id,
                 "name": name,
                 "abbreviation": abbreviation
             }
+            if environment_id is not None:
+                project_data["environment_id"] = environment_id
+            if description is not None:
+                project_data["description"] = description
             data = self._post(endpoint, project_data)
             return data
 
@@ -122,6 +145,7 @@ class Projects:
         data = self._patch(endpoint, {"name": name, "abbreviation": abbreviation})
         return data
 
+    @conceptual
     def update_user_role(self, project_id, user_id, role):
         """
         Update the role of a user within a project.

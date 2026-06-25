@@ -32,16 +32,13 @@ class Crops:
         params = {}
 
         # Add optional parameters if provided
-        if sort_by:
-            params["sort_by"] = sort_by
-        if order:
-            params["order"] = order
-        if limit:
-            params["limit"] = limit
-        if page:
-            params["page"] = page    
-        if lang:
-            params["lang"] = lang
+        if page: params["page"] = page
+        if limit: params["limit"] = limit
+        if order: params["order"] = order
+        if sort_by: params["sort_by"] = sort_by
+
+        if lang: params["lang"] = lang
+      
 
         data = self._get(endpoint, params=params, verbose=verbose)
         return self._format_output(data)
@@ -63,14 +60,14 @@ class Crops:
                 
         endpoint = f"crops/{crop_code}/varieties"
         params = {}
-        if sort_by:
-            params["sort_by"] = sort_by
-        if order:
-            params["order"] = order
-        if limit:
-            params["limit"] = limit
-        if page:
-            params["page"] = page
+
+        if crop_code is None:
+            raise ValueError("crop_code is required")
+        
+        if page: params["page"] = page
+        if limit: params["limit"] = limit
+        if order: params["order"] = order
+        if sort_by: params["sort_by"] = sort_by
             
         data = self._get(endpoint, params=params)    
         

@@ -1,30 +1,66 @@
 import mimetypes
 import os
 
+from .base import conceptual
+
+
 class Layers:
-    def layers(self, field_id, layer_type_id=None, start_date=None, end_date=None):
+    def layers(self, field_id, layer_type_id=None, start_date=None, end_date=None,
+               page=None, limit=None, order=None, sort_by=None):
         """
-        Get all layers for the given field possibly filtered by the given layer
-            type, start date and end date
+        Get all layers for the given field, optionally filtered by layer type and
+        acquisition date range, with sorting and pagination.
         Args:
             field_id (str): The ID of the field
-            layer_type_id (str): The ID of the layer type of interest - if any
-            start_date (str): the relevant start date - if any
-            end_date (str): the relevant end date - if any
+            layer_type_id (str, optional): Filter to a single layer type.
+            start_date (str, optional): Acquisition timestamp lower bound.
+            end_date (str, optional): Acquisition timestamp upper bound.
+            page (int, optional): Page number (default 1).
+            limit (int, optional): Results per page. Omit to return all.
+            order (str, optional): 'asc' or 'desc'.
+            sort_by (str, optional): 'acquired_at', 'created_at' or 'updated_at'.
         Returns:
             pd.DataFrame or list: a DataFrame or JSON list with data on the relevant layers
         """
         endpoint = f"fields/{field_id}/layers"
-        params = []
-        if layer_type_id is not None:
-            params.append(f"layer_type_id={layer_type_id}")
-        if start_date is not None:
-            params.append(f"start_date={start_date}")
-        if end_date is not None:
-            params.append(f"end_date={end_date}")
-        if params:
-            endpoint += "?" + "&".join(params)
-        data = self._get(endpoint)
+        params = {}
+        if layer_type_id is not None: params["layer_type_id"] = layer_type_id
+        if start_date is not None: params["start_date"] = start_date
+        if end_date is not None: params["end_date"] = end_date
+        if page: params["page"] = page
+        if limit: params["limit"] = limit
+        if order: params["order"] = order
+        if sort_by: params["sort_by"] = sort_by
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
+
+    def project_layers(self, project_id, layer_type_id=None, start_date=None,
+                       end_date=None, page=None, limit=None, order=None, sort_by=None):
+        """
+        Get all layers in a project (across its fields), with the same filters as
+        the field-layers endpoint plus sorting and pagination.
+        Args:
+            project_id (str): UUID of the project.
+            layer_type_id (str, optional): Filter to a single layer type.
+            start_date (str, optional): Acquisition timestamp lower bound.
+            end_date (str, optional): Acquisition timestamp upper bound.
+            page (int, optional): Page number (default 1).
+            limit (int, optional): Results per page. Omit to return all.
+            order (str, optional): 'asc' or 'desc'.
+            sort_by (str, optional): 'acquired_at', 'created_at' or 'updated_at'.
+        Returns:
+            pd.DataFrame or list: Layers as DataFrame or JSON list.
+        """
+        endpoint = f"projects/{project_id}/layers"
+        params = {}
+        if layer_type_id is not None: params["layer_type_id"] = layer_type_id
+        if start_date is not None: params["start_date"] = start_date
+        if end_date is not None: params["end_date"] = end_date
+        if page: params["page"] = page
+        if limit: params["limit"] = limit
+        if order: params["order"] = order
+        if sort_by: params["sort_by"] = sort_by
+        data = self._get(endpoint, params=params)
         return self._format_output(data)
 
     def layer_by_id(self, layer_id):
@@ -53,6 +89,7 @@ class Layers:
         data = self._get(endpoint)
         return data
 
+    @conceptual
     def layer_create(self, field_id, type_id, acquired_at, file_path, acquired_at_end_date=None):
         """
         Create a layer
@@ -128,6 +165,7 @@ class Layers:
         data = self._delete(endpoint)
         return data
 
+    @conceptual
     def layer_metadata(self, layer_id):
         """
         Get metadata for a layer.
@@ -140,6 +178,7 @@ class Layers:
         data = self._get(endpoint)
         return data
 
+    @conceptual
     def layer_metadata_post(self, layer_id, metadata):
         """
         Post/update metadata for a layer.
@@ -155,14 +194,44 @@ class Layers:
 
     def layer_statistics(self, layer_id):
         """
-        Trigger statistics calculation for a layer.
+        (Re)compute and store summary statistics for a layer (POST).
         Args:
             layer_id (int): Numeric layer ID.
         Returns:
-            dict: Updated layer data including computed statistics.
+            dict: The computed statistics.
         """
         endpoint = f"layers/{layer_id}/statistics"
         data = self._post(endpoint)
+        return data
+
+    def layer_statistics_get(self, layer_id):
+        """
+        Return the stored summary statistics for a layer (GET). Use
+        layer_statistics() to (re)compute them.
+        Args:
+            layer_id (int): Numeric layer ID.
+        Returns:
+            dict: The stored statistics (mean, min, max, std, etc.).
+        """
+        endpoint = f"layers/{layer_id}/statistics"
+        data = self._get(endpoint)
+        return data
+
+    @conceptual
+    def layer_timeseries(self, field_id, layer_type_id, geometry):
+        """
+        Return a time-ordered list of (date, mean, std, min, max) for a field,
+        layer type, and area of interest.
+        Args:
+            field_id (str): UUID of the field.
+            layer_type_id (str): UUID of the layer type.
+            geometry (str): Area of interest as a WKT string.
+        Returns:
+            dict: TimeseriesResponse with a 'data' list.
+        """
+        endpoint = f"fields/{field_id}/layers/timeseries"
+        payload = {"layer_type_id": layer_type_id, "geometry": geometry}
+        data = self._post(endpoint, payload)
         return data
 
     def layer_histogram(self, layer_id, bins=50, band=1):

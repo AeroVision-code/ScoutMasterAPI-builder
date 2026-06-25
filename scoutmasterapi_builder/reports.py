@@ -1,7 +1,10 @@
 import mimetypes
 import os
 
+from .base import conceptual_class
 
+
+@conceptual_class
 class Reports:
     def reports(self, project_id):
         """

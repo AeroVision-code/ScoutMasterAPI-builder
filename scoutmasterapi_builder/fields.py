@@ -3,40 +3,47 @@ import requests
 
 
 class Fields:
-    def fields(self, project_id):
+    def fields(self, project_id, page=None, limit=None, order=None, lang=None, sort_by=None, crs=None):
         """
         Get all the fields that are used within the specified project.
         Args:
             project_id (str): The ID of the project
+            page (int, optional): Page number (default 1).
+            limit (int, optional): Results per page. Omit to return all.
+            order (str, optional): 'asc' or 'desc'.
+            lang (str, optional): Language for field labels.
+            sort_by (str, optional): 'name', 'created_at' or 'updated_at'.
+            crs (int, optional): Output CRS EPSG code (default 4326).
         Returns:
             pd.DataFrame or list: Fields as DataFrame or JSON list.
         """
         endpoint = f"projects/{project_id}/fields"
         params = {}
-        if self.output_format in ["geojson", "gdf"]:
-            params["output"] = "geojson"
-
-        # Pass params to _get
+        if page: params["page"] = page
+        if limit: params["limit"] = limit
+        if order: params["order"] = order
+        if lang: params["lang"] = lang
+        if sort_by: params["sort_by"] = sort_by
+        if crs: params["crs"] = crs
+        # spatial shaping is done client-side from the WKT geometry the regular
+        # endpoint returns, so pagination is preserved. Use fields_geojson() for
+        # the server's GeoJSON FeatureCollection.
         data = self._get(endpoint, params=params)
         return self._format_output(data)
-    
+
     def field_by_id(self, field_id):
         """
         Get the field indicated by the given field ID.
         Args:
             field_id (str): The ID of the field
         Returns:
-            pd.DataFrame or list: Field as DataFrame or JSON list.
+            pd.DataFrame, GeoDataFrame, dict or GeoJSON depending on
+            output_format / spatial.
         """
         endpoint = f"fields/{field_id}"
-        params = {}
-        if self.output_format in ["geojson", "gdf"]:
-            params["output"] = "geojson"
-        data = self._get(endpoint, params=params)
-        if self.output_format in ["df"]:
-            data = [data]
+        data = self._get(endpoint)
         return self._format_output(data)
-    
+
     def field_by_location(self, project_id, lat, lon):
         """
         Get the field used within the specified project, filtered by the point location.
@@ -45,16 +52,14 @@ class Fields:
             lat (float): the latitude of the point
             lon (float): the longitude of the point
         Returns:
-            pd.DataFrame or list: Field as DataFrame or JSON list.
+            pd.DataFrame, GeoDataFrame, dict or GeoJSON depending on
+            output_format / spatial.
         """
-        endpoint = f"projects/{project_id}/fields"
-        endpoint += f"/by-location?lat={lat}&long={lon}"
-        params = {}
-        if self.output_format in ["geojson", "gdf"]:
-            params["output"] = "geojson"
+        # No GeoJSON variant for by-location; the regular response carries WKT
+        # geometry which _format_output parses when spatial is set.
+        endpoint = f"projects/{project_id}/fields/by-location"
+        params = {"lat": lat, "long": lon}
         data = self._get(endpoint, params=params)
-        if self.output_format in ["df"]:
-            data = [data]
         return self._format_output(data)
         
     def fields_create(self, project_id, field_data):
@@ -77,7 +82,7 @@ class Fields:
         endpoint = f"projects/{project_id}/fields"
         try:
             data = self._post(endpoint, field_data)
-            return pd.DataFrame(data) if self.output_format == "df" else data
+            return self._format_output(data)
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
@@ -105,9 +110,11 @@ class Fields:
         Args:
             field_id (str): UUID of the field.
         Returns:
-            dict: Deleted field data with message.
+            bool: True if the field was deleted successfully (204 No Content).
         """
         endpoint = f"fields/{field_id}"
-        data = self._delete(endpoint)
-        return data
+        deleted = self._delete(endpoint)
+        if deleted:
+            print(f" > Field \033[94m{field_id}\033[0m deleted successfully.")
+        return deleted
 

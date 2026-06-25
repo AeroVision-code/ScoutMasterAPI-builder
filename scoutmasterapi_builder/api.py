@@ -11,6 +11,7 @@ from .cultivations import Cultivations
 from .users import Users
 from .subscriptions import Subscriptions
 from .services import Services, ResearchCategories
+from .researches import Researches
 from .reports import Reports
 from .invites import Invites
 from .environments import Environments
@@ -32,6 +33,7 @@ class ScoutMasterAPI(
     Subscriptions,
     Services,
     ResearchCategories,
+    Researches,
     Reports,
     Invites,
     Environments,

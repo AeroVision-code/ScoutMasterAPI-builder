@@ -1,9 +1,12 @@
 import pandas as pd
 
+from .base import conceptual_class
 
+
+@conceptual_class
 class Observations:
     def observations(self, project_id, page=None, limit=None, order=None,
-                     lang=None, sort_by=None, crs=None, output_format=None):
+                     lang=None, sort_by=None, crs=None):
         """
         Get all observations for the given project.
         Args:
@@ -14,7 +17,6 @@ class Observations:
             lang (str, optional): Language code.
             sort_by (str, optional): Column to sort by.
             crs (int, optional): Target CRS EPSG code (default 4326).
-            output_format (str, optional): 'wkt' or 'geojson'.
         Returns:
             pd.DataFrame or list: Observations as DataFrame or JSON list.
         """
@@ -26,15 +28,11 @@ class Observations:
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
-        if output_format:
-            params["output_format"] = output_format
-        elif self.output_format in ("geojson", "gdf"):
-            params["output_format"] = "geojson"
         data = self._get(endpoint, params=params)
         return self._format_output(data)
 
     def observations_by_field(self, field_id, page=None, limit=None, order=None,
-                               lang=None, sort_by=None, crs=None, output_format=None):
+                               lang=None, sort_by=None, crs=None):
         """
         Get all observations for a field.
         Args:
@@ -45,7 +43,6 @@ class Observations:
             lang (str, optional): Language code.
             sort_by (str, optional): Column to sort by.
             crs (int, optional): Target CRS EPSG code (default 4326).
-            output_format (str, optional): 'wkt' or 'geojson'.
         Returns:
             DataFrame, GeoDataFrame, or dict.
         """
@@ -57,10 +54,6 @@ class Observations:
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
-        if output_format:
-            params["output_format"] = output_format
-        elif self.output_format in ("geojson", "gdf"):
-            params["output_format"] = "geojson"
         data = self._get(endpoint, params=params)
         return self._format_output(data)
 
@@ -69,23 +62,18 @@ class Observations:
         """Deprecated: use observations_by_field() instead."""
         return self.observations_by_field(field_id, **kwargs)
 
-    def observation_by_id(self, observation_id, crs=None, output_format=None):
+    def observation_by_id(self, observation_id, crs=None):
         """
         Get all data and metadata for the given observation.
         Args:
             observation_id (str): The ID of the observation.
             crs (int, optional): Target CRS EPSG code (default 4326).
-            output_format (str, optional): 'wkt' or 'geojson'.
         Returns:
             pd.DataFrame or list: Observation as DataFrame or JSON.
         """
         endpoint = f"observations/{observation_id}"
         params = {}
         if crs: params["crs"] = crs
-        if output_format:
-            params["output_format"] = output_format
-        elif self.output_format in ("geojson", "gdf"):
-            params["output_format"] = "geojson"
         data = self._get(endpoint, params=params)
         return self._format_output(data)
 
@@ -207,3 +195,55 @@ class Observations:
             target_min=obs_data.get("target_min"),
             target_max=obs_data.get("target_max"),
         )
+
+    # ── GeoJSON variants (not paginated; return a FeatureCollection) ─────────
+    def observations_geojson(self, project_id, lang=None, crs=None):
+        """
+        Get a project's observations as a GeoJSON FeatureCollection.
+        Args:
+            project_id (str): UUID of the project.
+            lang (str, optional): Language for field labels.
+            crs (int, optional): Output CRS EPSG code (default 4326).
+        Returns:
+            GeoDataFrame, dict, or JSON depending on output_format.
+        """
+        endpoint = f"projects/{project_id}/observations/geojson"
+        params = {}
+        if lang: params["lang"] = lang
+        if crs: params["crs"] = crs
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
+
+    def observations_by_field_geojson(self, field_id, lang=None, crs=None):
+        """
+        Get a field's observations as a GeoJSON FeatureCollection.
+        Args:
+            field_id (str): UUID of the field.
+            lang (str, optional): Language for field labels.
+            crs (int, optional): Output CRS EPSG code (default 4326).
+        Returns:
+            GeoDataFrame, dict, or JSON depending on output_format.
+        """
+        endpoint = f"fields/{field_id}/observations/geojson"
+        params = {}
+        if lang: params["lang"] = lang
+        if crs: params["crs"] = crs
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
+
+    def observation_by_id_geojson(self, observation_id, lang=None, crs=None):
+        """
+        Get a single observation as a GeoJSON FeatureCollection.
+        Args:
+            observation_id (str): UUID of the observation.
+            lang (str, optional): Language for field labels.
+            crs (int, optional): Output CRS EPSG code (default 4326).
+        Returns:
+            GeoDataFrame, dict, or JSON depending on output_format.
+        """
+        endpoint = f"observations/{observation_id}/geojson"
+        params = {}
+        if lang: params["lang"] = lang
+        if crs: params["crs"] = crs
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
