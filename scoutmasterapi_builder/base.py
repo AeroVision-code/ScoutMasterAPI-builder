@@ -322,37 +322,36 @@ class BaseAPI:
         spatial is requested but the endpoint returns no geometry, formatting
         falls back to the plain container so non-spatial endpoints keep working.
         """
+        if self.output_format not in ("json", "df"):
+            raise ValueError("output_format must be 'df' or 'json'")
+        
         spatial = bool(getattr(self, "spatial", False)) and self._has_geometry(data)
+        is_feature_collection = isinstance(data, dict) and "features" in data
 
-        if self.output_format == "json":
-            if spatial:
-                if isinstance(data, dict) and "features" in data:
-                    return data  # already a FeatureCollection
-                return self._to_geodataframe(data).__geo_interface__
+        if spatial and self.output_format == "json" and is_feature_collection:
+            return data  # already a FeatureCollection
+
+        elif spatial and self.output_format == "json":
+            return self._to_geodataframe(data).__geo_interface__
+
+        elif spatial and self.output_format == "df":
+            flattened = [self._unwrap_dicts(item) for item in data]
+            return self._to_geodataframe(flattened)
+        
+        elif self.output_format == "json":
             return data
 
-        if self.output_format == "df":
-            if spatial:
-                data = [self._unwrap_dicts(item) for item in data]
-                return self._to_geodataframe(data)
-            # plain DataFrame
-            if isinstance(data, dict) and "features" in data:
-                # FeatureCollection but non-spatial: flatten properties + geometry
-                rows = [{**f.get("properties", {}), "geometry": f.get("geometry")}
-                        for f in data["features"]]
-                rows = [self._unwrap_dicts(row) for row in rows]
-                return pd.DataFrame(rows)
-            if isinstance(data, dict):
-                data = [self._unwrap_dicts(data)]  # normalize single object to list
-            elif isinstance(data, list):
-                data = [self._unwrap_dicts(item) for item in data]
-            return pd.DataFrame(data)
-
-        raise ValueError("output_format must be 'df' or 'json'")
+        elif is_feature_collection:
+            # FeatureCollection but non-spatial: flatten properties + geometry
+            rows = [{**f.get("properties", {}), "geometry": f.get("geometry")}
+                    for f in data["features"]]
+            return pd.json_normalize(rows)
+        
+        else:
+            return pd.json_normalize(data)
 
     def _unwrap_dicts(self, data):
-        wrapped_keys = ["field", "crop", "address", "layer_type", "statistics", "preview"]
-        for key in wrapped_keys:
+        for key in ["field", "crop", "address", "layer_type", "statistics", "preview"]:
             if (key in data) and isinstance(data[key], dict):
                 for subkey in list(data[key].keys()):
                     data[key + "." + subkey] = data[key][subkey]
