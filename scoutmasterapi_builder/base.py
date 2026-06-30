@@ -333,19 +333,32 @@ class BaseAPI:
 
         if self.output_format == "df":
             if spatial:
+                data = [self._unwrap_dicts(item) for item in data]
                 return self._to_geodataframe(data)
             # plain DataFrame
             if isinstance(data, dict) and "features" in data:
                 # FeatureCollection but non-spatial: flatten properties + geometry
                 rows = [{**f.get("properties", {}), "geometry": f.get("geometry")}
                         for f in data["features"]]
+                rows = [self._unwrap_dicts(row) for row in rows]
                 return pd.DataFrame(rows)
             if isinstance(data, dict):
-                data = [data]  # normalize single object to list
+                data = [self._unwrap_dicts(data)]  # normalize single object to list
+            elif isinstance(data, list):
+                data = [self._unwrap_dicts(item) for item in data]
             return pd.DataFrame(data)
 
         raise ValueError("output_format must be 'df' or 'json'")
-        
+
+    def _unwrap_dicts(self, data):
+        wrapped_keys = ["field", "crop", "address", "layer_type", "statistics", "preview"]
+        for key in wrapped_keys:
+            if (key in data) and isinstance(data[key], dict):
+                for subkey in list(data[key].keys()):
+                    data[key + "." + subkey] = data[key][subkey]
+                data.pop(key, None)
+        return data
+
     def _validate_numeric_fields(self, data: dict, fields: list[str]):
         for field in fields:
             if field in data and data[field] is not None:
