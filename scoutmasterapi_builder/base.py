@@ -4,9 +4,9 @@ import pandas as pd
 import geopandas as gpd
 from requests.auth import HTTPBasicAuth
 import requests
-import json
+from concurrent.futures import ThreadPoolExecutor
 from warnings import warn
-
+from math import ceil
 
 def conceptual(func):
     """Mark a client method as targeting a ⚠️ Conceptual endpoint.
@@ -47,7 +47,7 @@ import binascii
 class BaseAPI:
     """Core HTTP requests and output formatting"""
     def __init__(self, dev=False, output_format="df", version="v3", verbose=True,
-                 spatial=False):
+                 spatial=True):
         self.verbose = verbose  # toggle helper/status prints on or off
         self.token_url = "https://eu-central-1fq4qt7w6q.auth.eu-central-1.amazoncognito.com/oauth2/token"
         self.access_token = None
@@ -60,10 +60,10 @@ class BaseAPI:
         self.version = version
         self.api = "https://dev-api.scoutmaster.nl" if dev else "https://api.scoutmaster.nl"
         self.host = f"{self.api}/{self.version}/"
-        # output_format is the container ('df' or 'json'); `spatial` controls
+        # output_format is the container type ('df' or 'json'); `spatial` controls
         # whether geometry-bearing responses are returned geometry-aware
         # (GeoDataFrame for df, GeoJSON FeatureCollection for json).
-        # Legacy values 'gdf'/'geojson' map onto (container + spatial=True).
+        # Legacy values 'gdf'/'geojson' map onto (container type + spatial=True).
         if output_format == "gdf":
             output_format, spatial = "df", True
         elif output_format == "geojson":
@@ -131,8 +131,9 @@ class BaseAPI:
         self._check_auth()
         return {'Authorization': f'Bearer {self.access_token}', 'Content-Type': 'application/json'}
 
-    def _get(self, endpoint, params=None, verbose=False):
+    def _get(self, endpoint, params=None, verbose=False, unwrap=True):
         """Internal GET request helper."""
+        response = None
         try:
             self._check_auth()
         
@@ -147,15 +148,54 @@ class BaseAPI:
             if verbose:
                 count = response_json.get("count", len(data) if hasattr(data, "__len__") else 1)
                 self._log(f"GET {endpoint} → {count} record(s)")
-            return data
+            return data if unwrap else response_json
         except requests.exceptions.RequestException as e:
-            rtn_text = response.text.lower()
-            code = response.status_code
-            if (code // 100 == 4) and ("not found" in rtn_text) or ("validation failed" in rtn_text):
-                warn(response.text)
-                return []
-            else:
-                raise Exception(f"GET request failed: {e}")
+            if response is None:
+                # No response at all: DNS failure, connection refused, timeout? No status to inspect.
+                raise Exception(f"GET request failed (no response): {e}")
+
+                rtn_text = response.text.lower()
+                code = response.status_code
+                if (code // 100 == 4) and ("not found" in rtn_text) or ("validation failed" in rtn_text):
+                    warn(response.text)
+                    return []
+                else:
+                    raise Exception(f"GET request failed: {e}")
+
+    def _get_paginated(self, endpoint, params=None, limit=100, max_workers=10, page=None, verbose=False):
+        """Generic paginated GET. Works for any endpoint/params shape."""
+        params = dict(params or {})
+        params["limit"] = limit
+        params["page"] = 1
+        first = self._get(endpoint, params=params, verbose=verbose, unwrap=False)
+
+        # Always retrieve the first page, so that we can check that page <= total_pages
+        records = first.get("data", [])
+        total_pages = first.get("pagination", {}).get("total_pages")
+        if total_pages is None:
+            total = first.get("pagination", {}).get("total", len(records))
+            total_pages = ceil(total / limit)
+
+        if page is not None:
+            if page < 1 or page > total_pages:
+                raise ValueError(f"page {page} is out of range (1-{total_pages})")
+            if page == 1:
+                return records  # already fetched, don't re-request
+            page_params = {**params, "page": page}
+            result = self._get(endpoint, params=page_params, verbose=verbose, unwrap=False)
+            return result.get("data", [])
+
+        if total_pages > 1:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(self._get, endpoint, {**params, "page": p}, verbose, False): p
+                    for p in range(2, total_pages + 1)
+                }
+                for future in futures:
+                    result = future.result()
+                    records.extend(result.get("data", []))
+
+        return records
 
     def _post(self, endpoint, payload=None, files=None):
         """
@@ -351,6 +391,8 @@ class BaseAPI:
             return pd.json_normalize(data)
 
     def _unwrap_dicts(self, data):
+        if not isinstance(data, dict):
+            return data
         for key in ["field", "crop", "address", "layer_type", "statistics", "preview"]:
             if (key in data) and isinstance(data[key], dict):
                 for subkey in list(data[key].keys()):
