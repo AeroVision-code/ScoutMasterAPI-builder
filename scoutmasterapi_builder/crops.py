@@ -40,7 +40,7 @@ class Crops:
         if lang: params["lang"] = lang
       
 
-        data = self._get(endpoint, params=params, verbose=verbose)
+        data = self._get_paginated(endpoint, params=params, verbose=verbose)
         return self._format_output(data)
     
     def crop_varieties(self, crop_code, sort_by=None, order=None, limit=None, page=None):
@@ -69,6 +69,6 @@ class Crops:
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
             
-        data = self._get(endpoint, params=params)    
+        data = self._get_paginated(endpoint, params=params)    
         
         return self._format_output(data)

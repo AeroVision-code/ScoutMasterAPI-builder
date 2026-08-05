@@ -24,7 +24,7 @@ class Users:
         if limit: params["limit"] = limit
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
-        data = self._get(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params)
         return self._format_output(data)
 
     def create_user(self, username, email, name=None, phone_number=None, temporary_password=None):
@@ -116,7 +116,7 @@ class Users:
         if limit: params["limit"] = limit
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
-        data = self._get(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params)
         return self._format_output(data)
 
     def project_user(self, project_id, user_id):

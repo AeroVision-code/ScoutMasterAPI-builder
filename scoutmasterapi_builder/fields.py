@@ -28,7 +28,7 @@ class Fields:
         # spatial shaping is done client-side from the WKT geometry the regular
         # endpoint returns, so pagination is preserved. Use fields_geojson() for
         # the server's GeoJSON FeatureCollection.
-        data = self._get(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params)
         return self._format_output(data)
 
     def field_by_id(self, field_id):
@@ -42,7 +42,7 @@ class Fields:
         """
         endpoint = f"fields/{field_id}"
         data = self._get(endpoint)
-        return self._format_output(data)
+        return self._format_output([data])
 
     def field_by_location(self, project_id, lat, lon):
         """
