@@ -21,7 +21,7 @@ class LayerTypes:
         if order: params["order"] = order
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
-        data = self._get_paginated(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params, limit=limit, page=page)
         return self._format_output(data)
 
     def layer_types_by_fieldid(self, field_id, page=None, limit=None, order=None,
