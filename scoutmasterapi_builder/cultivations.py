@@ -26,7 +26,7 @@ class Cultivations:
         if order: params["order"] = order
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
-        data = self._get(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params)
         return self._format_output(data)
 
     def cultivations_by_field(self, field_id, lang=None):

@@ -24,7 +24,7 @@ class Researches:
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
         if connected is not None: params["connected"] = connected
-        data = self._get(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params)
         return self._format_output(data)
 
     def research_reprocess(self, research_id):
