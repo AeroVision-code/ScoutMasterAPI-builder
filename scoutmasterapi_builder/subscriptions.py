@@ -24,7 +24,7 @@ class Subscriptions:
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
         if subscription_id is not None: params["subscription_id"] = subscription_id
-        data = self._get_paginated(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params, limit=limit, page=page)
         return self._format_output(data)
 
     def subscriptions_by_field(self, field_id, page=None, limit=None, order=None,

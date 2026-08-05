@@ -28,7 +28,7 @@ class Observations:
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
-        data = self._get_paginated(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params, limit=limit, page=page)
         return self._format_output(data)
 
     def observations_by_field(self, field_id, page=None, limit=None, order=None,
@@ -54,7 +54,7 @@ class Observations:
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
-        data = self._get_paginated(endpoint, params=params)
+        data = self._get_paginated(endpoint, params=params, limit=limit, page=page)
         return self._format_output(data)
 
     # Legacy alias
