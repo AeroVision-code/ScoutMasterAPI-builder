@@ -164,12 +164,15 @@ class BaseAPI:
 
     def _get_paginated(self, endpoint, params=None, limit=100, max_workers=10, page=None, verbose=False):
         """Generic paginated GET. Works for any endpoint/params shape."""
+        if limit is None: limit = 100
+        if max_workers is None: max_workers = 10
         params = dict(params or {})
         params["limit"] = limit
         params["page"] = 1
         first = self._get(endpoint, params=params, verbose=verbose, unwrap=False)
 
         # Always retrieve the first page, so that we can check that page <= total_pages
+        if first is None: first = {}
         records = first.get("data", [])
         total_pages = first.get("pagination", {}).get("total_pages")
         if total_pages is None:
@@ -177,6 +180,10 @@ class BaseAPI:
             total_pages = ceil(total / limit)
 
         if page is not None:
+            if total_pages == 0:
+                if page == 1: return []
+                raise ValueError(f"no data available for this endpoint, so page {page} does not exist")
+                
             if page < 1 or page > total_pages:
                 raise ValueError(f"page {page} is out of range (1-{total_pages})")
             if page == 1:
