@@ -40,7 +40,7 @@ class Crops:
         if lang: params["lang"] = lang
       
 
-        data = self._get_paginated(endpoint, params=params, limit=limit, max_workers=max_workers, page=page,
+        data = self._get_paginated(endpoint, params=params, limit=limit, page=page,
             verbose=verbose)
         return self._format_output(data)
     
