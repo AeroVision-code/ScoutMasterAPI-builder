@@ -131,7 +131,7 @@ class BaseAPI:
         self._check_auth()
         return {'Authorization': f'Bearer {self.access_token}', 'Content-Type': 'application/json'}
 
-    def _get(self, endpoint, params=None, verbose=False, unwrap=True):
+    def _get(self, endpoint, params=None, verbose=False, unwrap=True, timeout=15):
         """Internal GET request helper."""
         response = None
         try:
@@ -140,7 +140,8 @@ class BaseAPI:
             response = requests.get(
                 f"{self.host}{endpoint}",
                 headers=self._get_headers(),
-                params=params  # requests will handle encoding
+                params=params,  # requests will handle encoding
+                timeout=timeout
             )
             response.raise_for_status()
             response_json = response.json()
@@ -162,7 +163,7 @@ class BaseAPI:
                 else:
                     raise Exception(f"GET request failed: {e}")
 
-    def _get_paginated(self, endpoint, params=None, limit=100, max_workers=10, page=None, verbose=False):
+    def _get_paginated(self, endpoint, params=None, limit=100, max_workers=10, page=None, verbose=True):
         """Generic paginated GET. Works for any endpoint/params shape."""
         if limit is None: limit = 100
         if max_workers is None: max_workers = 10
@@ -194,13 +195,25 @@ class BaseAPI:
 
         if total_pages > 1:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # The following is a dict comprehension:
                 futures = {
                     executor.submit(self._get, endpoint, {**params, "page": p}, verbose, False): p
                     for p in range(2, total_pages + 1)
                 }
+                
+                # Arrange that the page fetching does not fail completely because of 1 failure or so.
+                failed_pages = []
                 for future in futures:
-                    result = future.result()
-                    records.extend(result.get("data", []))
+                    page_num = futures[future]
+                    try:
+                        result = future.result()
+                        records.extend(result.get("data", []))
+                    except requests.exceptions.RequestException as e:
+                        failed_pages.append(page_num)
+                        self._log(f"page {page_num} failed: {e}")
+                if failed_pages:
+                    # Depending on preferences, the following can be replaced with the raising of an exception
+                    warn(f"failed to fetch page(s) {failed_pages} — returned ({len(records)} records) are incomplete!")
 
         return records
 
