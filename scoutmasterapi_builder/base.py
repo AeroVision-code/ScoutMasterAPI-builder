@@ -17,11 +17,13 @@ def conceptual(func):
     """
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
+        """
         warn(
             f"'{func.__name__}' calls a ⚠️ Conceptual ScoutMaster endpoint that is "
             f"not yet implemented server-side and may change significantly.",
             stacklevel=2,
         )
+        """
         return func(self, *args, **kwargs)
     return wrapper
 
