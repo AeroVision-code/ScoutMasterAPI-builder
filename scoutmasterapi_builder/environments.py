@@ -23,7 +23,7 @@ class Environments:
             dict: Environment data.
         """
         data = self._get(f"environments/{environment_id}")
-        return data
+        return self._format_output(data)
 
     def environment_create(self, name, description=None):
         """
