@@ -1,6 +1,6 @@
 [project]
 name = "scoutmasterapi_builder"
-version = "0.0.7"
+version = "0.0.8"
 description = "ScoutMaster API client"
 readme = "README.md"
 license = "LicenseRef-Proprietary"
