@@ -81,7 +81,7 @@ class Projects:
         try:
             endpoint = f"projects/{project_id}"
             data = self._get(endpoint)
-            return data
+            return self._format_output(data)
             
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
