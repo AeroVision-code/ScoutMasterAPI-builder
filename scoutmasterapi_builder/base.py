@@ -39,11 +39,7 @@ def conceptual_class(cls):
     return cls
 from shapely.wkt import loads as wkt_loads
 from shapely.wkb import loads as wkb_loads
-from shapely.geometry import mapping, shape
-import binascii
-from shapely.wkt import loads as wkt_loads
-from shapely.wkb import loads as wkb_loads
-from shapely.geometry import mapping, shape
+from shapely.geometry import shape
 import binascii
 
 class BaseAPI:
@@ -157,13 +153,13 @@ class BaseAPI:
                 # No response at all: DNS failure, connection refused, timeout? No status to inspect.
                 raise Exception(f"GET request failed (no response): {e}")
 
-                rtn_text = response.text.lower()
-                code = response.status_code
-                if (code // 100 == 4) and ("not found" in rtn_text) or ("validation failed" in rtn_text):
-                    warn(response.text)
-                    return []
-                else:
-                    raise Exception(f"GET request failed: {e}")
+            rtn_text = response.text.lower()
+            code = response.status_code
+            if (code // 100 == 4) and ("not found" in rtn_text or "validation failed" in rtn_text):
+                warn(response.text)
+                return []
+            else:
+                raise Exception(f"GET request failed: {e}")
 
     def _get_paginated(self, endpoint, params=None, limit=100, max_workers=10, page=None, verbose=True):
         """Generic paginated GET. Works for any endpoint/params shape."""

@@ -1,4 +1,3 @@
-import pandas as pd
 import requests
 
 
@@ -62,9 +61,32 @@ class Fields:
         data = self._get(endpoint, params=params)
         return self._format_output(data)
         
+    def fields_as_geojson(self, project_id):
+        """
+        Return project fields as GeoJSON
+        Args:
+            project_id (str): The ID of the project
+        Returns:
+            GeoJSON 
+        """
+        endpoint = f"projects/{project_id}/fields/geojson"
+        result = self._get(endpoint)
+        return result
+    
+    def field_as_geojson(self, field_id):
+        """
+        Return a field by id as GeoJSON
+        Args:
+        Returns:
+            GeoJSON 
+        """
+        endpoint = f"fields/{field_id}/geojson"
+        result = self._get(endpoint)
+        return result 
+        
     def fields_create(self, project_id, field_data):
         """
-        Create a new field in the specified project.
+        Create a new field in the specified project (post).
         Args:
             project_id (str): The ID of the project.
             field_data (dict): Field data with required fields:
