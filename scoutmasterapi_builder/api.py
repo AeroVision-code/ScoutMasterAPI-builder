@@ -16,6 +16,7 @@ from .reports import Reports
 from .invites import Invites
 from .environments import Environments
 from .benchmarking import Benchmarking
+from .fieldzones import FieldZones
 
 
 class ScoutMasterAPI(
@@ -38,6 +39,7 @@ class ScoutMasterAPI(
     Invites,
     Environments,
     Benchmarking,
+    FieldZones
 ):
     """Aggregates all topic classes into a single API object"""
     pass
