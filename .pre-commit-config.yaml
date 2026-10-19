@@ -22,6 +22,9 @@ repos:
     rev: 0.8.1
     hooks:
       - id: nbstripout
+        # Keep cell ids: only outputs matter here, and renumbering them would
+        # touch every notebook on its first run.
+        args: ["--keep-id"]
 
   # Optional: the test suite, only when asked for (`--hook-stage manual`).
   # Not on every push: the spec tests depend on the live API, so an API change
