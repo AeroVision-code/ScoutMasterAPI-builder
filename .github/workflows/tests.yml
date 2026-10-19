@@ -1,7 +1,8 @@
 name: tests
 
-# On every push and pull request, plus nightly against the live API spec so
-# new endpoints or changed ⚠️ Conceptual markers show up as a failed run.
+# On every push and pull request, plus nightly against the live API specs so
+# new endpoints or changed ⚠️ Conceptual markers show up: as a failed run for
+# the production API, as a non-blocking warning for the dev API.
 on:
   push:
   pull_request:
@@ -19,6 +20,8 @@ jobs:
         # Oldest supported (requires-python) and a current version.
         python-version: ["3.10", "3.13"]
     env:
+      # The client must match the production API (the client's default).
+      SCOUTMASTER_SPEC: https://api.scoutmaster.nl/swagger-v3-full.json
       # Fail (instead of skip) when the spec can't be downloaded.
       SCOUTMASTER_SPEC_REQUIRED: "1"
     steps:
@@ -32,6 +35,37 @@ jobs:
         run: pip install -e ".[test]"
       - name: Run tests
         run: pytest tests -v
+
+  dev-api:
+    # Early warning, never blocking: changes land on the dev API before
+    # production, so a failure here means "the API is about to change",
+    # not "the client is broken". The run stays green; this job shows the diff.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    env:
+      SCOUTMASTER_SPEC: https://dev-api.scoutmaster.nl/swagger-v3-full.json
+      SCOUTMASTER_SPEC_REQUIRED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e ".[test]"
+      - name: Compare client with the dev API spec
+        run: pytest tests/test_spec_coverage.py -v
+      - name: Summarise
+        if: failure()
+        run: |
+          {
+            echo "### Dev API differs from the client"
+            echo "The dev API spec has changes that aren't in the client yet (new endpoints, changed"
+            echo "⚠️ Conceptual markers or lang support). Production still matches, so nothing is broken;"
+            echo "see the *Compare client with the dev API spec* step for the details."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   secrets:
     # Scans the commits of this push / pull request plus the current files.

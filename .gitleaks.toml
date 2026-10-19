@@ -1,0 +1,23 @@
+# gitleaks configuration, used by the pre-commit hook and the CI `secrets` job
+# (gitleaks picks up .gitleaks.toml from the scanned directory).
+#
+# The default rules don't recognise a Cognito app client secret: 52 plain
+# lowercase letters/digits without a prefix. That's how one leaked through a
+# notebook output in 2025 ("Using Client Secret: ..."). The rule below catches
+# such a value wherever it follows a "client secret" label, e.g.
+#   Using Client Secret: <value>
+#   SM_CLIENT_SECRET=<value>
+#   client_secret = "<value>"
+#   print("Client Secret:", "<value>")
+
+title = "ScoutMasterAPI-builder"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "cognito-client-secret"
+description = "Cognito app client secret after a 'client secret' label"
+regex = '''(?i)client[ _-]?secret[\s"':=,]{1,6}([a-z0-9]{40,64})\b'''
+secretGroup = 1
+keywords = ["secret"]

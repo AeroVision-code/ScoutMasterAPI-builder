@@ -1,0 +1,36 @@
+# Local checks that run before anything leaves your machine. This repo is
+# public: a secret that reaches GitHub is exposed at once, even if CI flags it
+# a minute later. Enable once per clone:
+#
+#   pip install -e ".[dev]"
+#   pre-commit install
+#
+# Run on all files by hand:   pre-commit run --all-files
+# Run the test suite by hand: pre-commit run pytest --hook-stage manual
+repos:
+  # Blocks a commit that adds something that looks like a secret.
+  # Same gitleaks version as the CI `secrets` job.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  # Strips notebook outputs (printed credentials, presigned links, user data)
+  # on commit. The commit stops once so you can review and re-add the cleaned
+  # notebook; tests/test_notebooks.py enforces the same in CI.
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
+
+  # Optional: the test suite, only when asked for (`--hook-stage manual`).
+  # Not on every push: the spec tests depend on the live API, so an API change
+  # would otherwise block unrelated pushes.
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest tests -q
+        language: system
+        pass_filenames: false
+        stages: [manual]

@@ -25,6 +25,8 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+# For working on this repo: tests plus the pre-commit hooks (.pre-commit-config.yaml)
+dev = ["pytest>=7", "pre-commit>=3"]
 # Only for the notebooks in examples/: pip install -e ".[examples]"
 examples = [
     "python-dotenv>=1.0.0",
