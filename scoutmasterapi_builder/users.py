@@ -140,7 +140,8 @@ class Users:
     # ── Project-scoped user methods ──────────────────────────────────────────
 
     @conceptual
-    def project_users(self, project_id, page=None, limit=None, order=None, sort_by=None):
+    def project_users(self, project_id, page=None, limit=None, order=None, sort_by=None,
+                      lang=None):
         """
         Get all users who have access to the project.
         Args:
@@ -149,6 +150,7 @@ class Users:
             limit (int, optional): Results per page.
             order (str, optional): 'asc' or 'desc'.
             sort_by (str, optional): 'name', 'created_at', or 'updated_at'.
+            lang (str, optional): Language for labels; defaults to the client's lang.
         Returns:
             pd.DataFrame or list: Users as DataFrame or JSON list.
         """
@@ -158,6 +160,7 @@ class Users:
         if limit: params["limit"] = limit
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
+        params["lang"] = lang or self.lang
         data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 

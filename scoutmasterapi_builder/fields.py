@@ -23,43 +23,45 @@ class Fields:
         if page: params["page"] = page
         if limit: params["limit"] = limit
         if order: params["order"] = order
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
         # spatial shaping is done client-side from the WKT geometry the regular
         # endpoint returns, so pagination is preserved. Use fields_geojson() for
         # the server's GeoJSON FeatureCollection.
         data = self._get_paged(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
-    def field_by_id(self, field_id):
+    def field_by_id(self, field_id, lang=None):
         """
         Get the field indicated by the given field ID.
         Args:
             field_id (str): The ID of the field
+            lang (str, optional): Language for field labels; defaults to the client's lang.
         Returns:
             pd.DataFrame, GeoDataFrame, dict or GeoJSON depending on
-            output_format / spatial.
+            output_format.
         """
         endpoint = f"fields/{field_id}"
-        data = self._get(endpoint)
+        data = self._get(endpoint, params={"lang": lang or self.lang})
         return self._format_output(data)
 
-    def field_by_location(self, project_id, lat, lon):
+    def field_by_location(self, project_id, lat, lon, lang=None):
         """
         Get the field used within the specified project, filtered by the point location.
         Args:
             project_id (str): The ID of the project
             lat (float): the latitude of the point
             lon (float): the longitude of the point
+            lang (str, optional): Language for field labels; defaults to the client's lang.
         Returns:
             pd.DataFrame, GeoDataFrame, dict or GeoJSON depending on
-            output_format / spatial.
+            output_format.
         """
         # No GeoJSON variant for by-location; the regular response carries WKT
         # geometry which _format_output parses when spatial is set.
         endpoint = f"projects/{project_id}/fields/by-location"
-        params = {"lat": lat, "long": lon}
+        params = {"lat": lat, "long": lon, "lang": lang or self.lang}
         data = self._get(endpoint, params=params)
         return self._format_output(data)
         
@@ -88,13 +90,14 @@ class Fields:
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
 
-    def field_update(self, field_id, name=None, geometry=None):
+    def field_update(self, field_id, name=None, geometry=None, lang=None):
         """
         Update a field name and/or geometry.
         Args:
             field_id (str): UUID of the field.
             name (str, optional): New field name.
             geometry (dict or str, optional): New geometry as GeoJSON dict or WKT string.
+            lang (str, optional): Language for labels in the response; defaults to the client's lang.
         Returns:
             dict: Updated field data with message.
         """
@@ -102,7 +105,7 @@ class Fields:
         payload = {}
         if name is not None: payload["name"] = name
         if geometry is not None: payload["geometry"] = geometry
-        data = self._patch(endpoint, payload)
+        data = self._patch(endpoint, payload, params={"lang": lang or self.lang})
         return data
 
     def field_delete(self, field_id):
@@ -134,12 +137,12 @@ class Fields:
         """
         endpoint = f"projects/{project_id}/fields/geojson"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if sort_by: params["sort_by"] = sort_by
         if order: params["order"] = order
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     def field_by_id_geojson(self, field_id, lang=None, crs=None):
         """
@@ -153,10 +156,10 @@ class Fields:
         """
         endpoint = f"fields/{field_id}/geojson"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     # ── Machine-data uploads (currently: John Deere seeding shapefile .zip) ──
     def field_upload_url(self, field_id, filename=None):

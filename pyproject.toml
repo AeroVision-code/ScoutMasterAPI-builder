@@ -9,24 +9,31 @@ authors = [
   {name="Rinus Vijftigschild", email="rinus.vijftigschild@aerovision.nl"},
   {name="Steven Hoek", email="steven.hoek@aerovision.nl"}
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["geodata", "soil data", "field data"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "python-dotenv>=1.0.0",
     "geopandas>=1.0.0",
-    "ipython>=8.23.0",
     "pandas>=2.3.0",
-    "numpy>=1.19.5",
     "requests>=2.31.0",
-    "shapely>=2.1.2"
+    "shapely>=2.1.2",
+    "urllib3>=1.26",
 ]
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+# Only for the notebooks in examples/: pip install -e ".[examples]"
+examples = [
+    "python-dotenv>=1.0.0",
+    "ipython>=8.23.0",
+    "matplotlib",
+    "folium",
+    "rasterio",
+    "pyproj",
+]
 
 [tool.setuptools.packages.find]
 include = ["scoutmasterapi_builder*"]

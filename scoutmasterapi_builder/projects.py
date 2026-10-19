@@ -26,7 +26,7 @@ class Projects:
             if page: params["page"] = page
             if limit: params["limit"] = limit
             if order: params["order"] = order
-            if lang: params["lang"] = lang
+            params["lang"] = lang or self.lang
             if sort_by: params["sort_by"] = sort_by
             data = self._get_paged(endpoint, params=params)
             return self._format_output(data)
@@ -99,7 +99,7 @@ class Projects:
             Formatted response (DataFrame or dict) depending on self.output_format.
         """
         # Initialise
-        if self.output_format == "df": response = pd.DataFrame()
+        if self.output_format in ("df", "gdf"): response = pd.DataFrame()
         else: response = {}
         self._check_auth()
         endpoint = f"projects/{project_id}/logo"
@@ -114,7 +114,7 @@ class Projects:
             mime_type = 'application/octet-stream'
 
         # Prepare some extra data
-        dt_now = datetime.datetime.now(datetime.UTC)
+        dt_now = datetime.datetime.now(datetime.timezone.utc)
         data = {"acquired_at": dt_now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"}
 
         # Explicitly set filename and content type before posting the file content

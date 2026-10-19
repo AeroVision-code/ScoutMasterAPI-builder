@@ -1,13 +1,16 @@
 """Checks the client against the ScoutMaster OpenAPI spec.
 
 Every public method is called with dummy arguments against a fake transport,
-recording which (method, path) it requests. The tests then fail when:
+recording which (method, path, query parameters) it requests. The tests then
+fail when:
   - the spec has an operation no client method calls,
   - a client method calls a path that isn't in the spec,
-  - a method's ⚠️ Conceptual warning doesn't match the spec.
+  - a method's ⚠️ Conceptual warning doesn't match the spec,
+  - `lang` is missing where the endpoint accepts it, or sent where it doesn't.
 
 The spec is downloaded from SPEC_URL; set SCOUTMASTER_SPEC to a local file or
-another URL to override. Tests are skipped when the spec can't be loaded.
+another URL to override. Tests are skipped when the spec can't be loaded,
+or fail instead when SCOUTMASTER_SPEC_REQUIRED is set (as in CI).
 
 Run with:  pytest tests
 """
@@ -17,6 +20,7 @@ import os
 import re
 import tempfile
 import warnings
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import requests
@@ -62,12 +66,22 @@ def spec():
         with open(source, encoding="utf-8") as fh:
             return json.load(fh)
     except Exception as e:
+        if os.getenv("SCOUTMASTER_SPEC_REQUIRED"):
+            pytest.fail(f"Could not load spec from {source}: {e}")
         pytest.skip(f"Could not load spec from {source}: {e}")
 
 
 @pytest.fixture(scope="module")
 def spec_ops(spec):
-    """[(HTTP method, path template, path regex, operationId, is_conceptual)]"""
+    """[(HTTP method, path template, path regex, operationId, is_conceptual, query param names)]"""
+    def resolve(obj):
+        while isinstance(obj, dict) and "$ref" in obj:
+            node = spec
+            for part in obj["$ref"].lstrip("#/").split("/"):
+                node = node[part]
+            obj = node
+        return obj
+
     ops = []
     for path, item in spec["paths"].items():
         for method, op in item.items():
@@ -75,20 +89,25 @@ def spec_ops(spec):
                 continue
             regex = re.compile("^" + re.sub(r"\{[^}]+\}", "[^/]+", path.lstrip("/")) + "$")
             conceptual = "Conceptual" in (op.get("summary") or "")
-            ops.append((method.upper(), path, regex, op["operationId"], conceptual))
+            query = frozenset(p["name"] for p in map(resolve, op.get("parameters", []))
+                              if p.get("in") == "query")
+            ops.append((method.upper(), path, regex, op["operationId"], conceptual, query))
     return ops
 
 
 @pytest.fixture(scope="module")
 def recorded():
-    """Call every public method; return ({method name: [(HTTP method, path)]}, warned names)."""
+    """Call every public method; return
+    ({method name: [(HTTP method, path, query param names)]}, warned names)."""
     api = ScoutMasterAPI(verbose=False, output_format="json")
     api.access_token, api._token_expiry = "token", float("inf")
     calls = {}
     current = [None]
 
     def fake_request(method, endpoint, **kwargs):
-        calls.setdefault(current[0], []).append((method, endpoint.split("?")[0].rstrip("/")))
+        url = urlsplit(endpoint)
+        query = set(parse_qs(url.query)) | set(kwargs.get("params") or {})
+        calls.setdefault(current[0], []).append((method, url.path.rstrip("/"), frozenset(query)))
         return _FakeResponse()
 
     api._request = fake_request
@@ -130,7 +149,7 @@ def _match(spec_ops, method, path):
 
 def test_every_spec_operation_has_a_method(spec_ops, recorded):
     calls, _ = recorded
-    covered = {op[3] for reqs in calls.values() for m, p in reqs if (op := _match(spec_ops, m, p))}
+    covered = {op[3] for reqs in calls.values() for m, p, _q in reqs if (op := _match(spec_ops, m, p))}
     missing = sorted(f"{op[0]} {op[1]} ({op[3]})" for op in spec_ops
                      if op[3] not in covered and op[3] not in EXCLUDED)
     assert not missing, "Spec operations without a client method:\n" + "\n".join(missing)
@@ -139,7 +158,7 @@ def test_every_spec_operation_has_a_method(spec_ops, recorded):
 def test_no_calls_outside_spec(spec_ops, recorded):
     calls, _ = recorded
     unknown = sorted(f"{name}: {m} {p}" for name, reqs in calls.items()
-                     for m, p in reqs if not _match(spec_ops, m, p))
+                     for m, p, _q in reqs if not _match(spec_ops, m, p))
     assert not unknown, "Client calls that aren't in the spec:\n" + "\n".join(unknown)
 
 
@@ -147,10 +166,26 @@ def test_conceptual_warnings_match_spec(spec_ops, recorded):
     calls, warned = recorded
     wrong = []
     for name, reqs in sorted(calls.items()):
-        matched = [op for m, p in reqs if (op := _match(spec_ops, m, p))]
+        matched = [op for m, p, _q in reqs if (op := _match(spec_ops, m, p))]
         if not matched:
             continue
         should_warn = any(op[4] for op in matched)
         if should_warn != (name in warned):
             wrong.append(f"{name}: warns={name in warned}, spec conceptual={should_warn}")
     assert not wrong, "Conceptual markers out of sync with the spec:\n" + "\n".join(wrong)
+
+
+def test_lang_sent_exactly_where_supported(spec_ops, recorded):
+    """Every request to an endpoint with a `lang` query parameter sends the
+    client's language; no other request sends one."""
+    calls, _ = recorded
+    wrong = []
+    for name, reqs in sorted(calls.items()):
+        for m, p, query in reqs:
+            op = _match(spec_ops, m, p)
+            if not op:
+                continue
+            supported, sent = "lang" in op[5], "lang" in query
+            if supported != sent:
+                wrong.append(f"{name}: {m} {op[1]} {'misses' if supported else 'sends unsupported'} lang")
+    assert not wrong, "lang query parameter out of sync with the spec:\n" + "\n".join(wrong)

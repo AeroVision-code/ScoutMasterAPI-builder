@@ -25,11 +25,11 @@ class Observations:
         if page: params["page"] = page
         if limit: params["limit"] = limit
         if order: params["order"] = order
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
         data = self._get_paged(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     def observations_by_field(self, field_id, page=None, limit=None, order=None,
                                lang=None, sort_by=None, crs=None):
@@ -51,31 +51,32 @@ class Observations:
         if page: params["page"] = page
         if limit: params["limit"] = limit
         if order: params["order"] = order
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
         data = self._get_paged(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     # Legacy alias
     def field_observations(self, field_id, **kwargs):
         """Deprecated: use observations_by_field() instead."""
         return self.observations_by_field(field_id, **kwargs)
 
-    def observation_by_id(self, observation_id, crs=None):
+    def observation_by_id(self, observation_id, crs=None, lang=None):
         """
         Get all data and metadata for the given observation.
         Args:
             observation_id (str): The ID of the observation.
             crs (int, optional): Target CRS EPSG code (default 4326).
+            lang (str, optional): Language for labels; defaults to the client's lang.
         Returns:
             pd.DataFrame or list: Observation as DataFrame or JSON.
         """
         endpoint = f"observations/{observation_id}"
-        params = {}
+        params = {"lang": lang or self.lang}
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     def observation_create(self, project_id, user_id, reference_code, acquired_at,
                            geometry, reported_at=None, research_category_id=None):
@@ -209,10 +210,10 @@ class Observations:
         """
         endpoint = f"projects/{project_id}/observations/geojson"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     def observations_by_field_geojson(self, field_id, lang=None, crs=None):
         """
@@ -226,10 +227,10 @@ class Observations:
         """
         endpoint = f"fields/{field_id}/observations/geojson"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     def observation_by_id_geojson(self, observation_id, lang=None, crs=None):
         """
@@ -243,10 +244,10 @@ class Observations:
         """
         endpoint = f"observations/{observation_id}/geojson"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     # ── Images ───────────────────────────────────────────────────────────────
     def observation_image_upload(self, observation_id, file_path):

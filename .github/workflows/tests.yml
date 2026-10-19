@@ -1,0 +1,34 @@
+name: tests
+
+# On every push and pull request, plus nightly against the live API spec so
+# new endpoints or changed ⚠️ Conceptual markers show up as a failed run.
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 4 * * *"  # 04:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest supported (requires-python) and a current version.
+        python-version: ["3.10", "3.13"]
+    env:
+      # Fail (instead of skip) when the spec can't be downloaded.
+      SCOUTMASTER_SPEC_REQUIRED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e ".[test]"
+      - name: Run tests
+        run: pytest tests -v

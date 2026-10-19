@@ -34,7 +34,7 @@ class Cultivations:
         if page: params["page"] = page
         if limit: params["limit"] = limit
         if order: params["order"] = order
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if sort_by: params["sort_by"] = sort_by
         data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
@@ -50,7 +50,7 @@ class Cultivations:
         """
         endpoint = f"fields/{field_id}/calendars"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         data = self._get(endpoint, params=params)
         return self._format_output(data)
 
@@ -77,9 +77,9 @@ class Cultivations:
         """
         endpoint = f"calendars/{cultivation_id}/tsum"
         data = self._get(endpoint)
-        if self.output_format == "json":
+        if self.output_format in ("json", "geojson"):
             return data
-        elif self.output_format == "df":
+        else:  # df / gdf (tsum rows carry no geometry)
             # Convert the 'tsum' list of dicts into a DataFrame
             if len(data) == 0 or len(data["tsum"]) == 0: return pd.DataFrame()
             df = pd.DataFrame(data['tsum'])

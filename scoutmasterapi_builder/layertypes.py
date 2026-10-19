@@ -19,7 +19,7 @@ class LayerTypes:
         if page: params["page"] = page
         if limit: params["limit"] = limit
         if order: params["order"] = order
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if sort_by: params["sort_by"] = sort_by
         data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
@@ -43,7 +43,7 @@ class LayerTypes:
         if page: params["page"] = page
         if limit: params["limit"] = limit
         if order: params["order"] = order
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if sort_by: params["sort_by"] = sort_by
         data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
@@ -59,7 +59,7 @@ class LayerTypes:
         """
         endpoint = f"layer-types/{layer_type_id}"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         data = self._get(endpoint, params=params)
         return data
 

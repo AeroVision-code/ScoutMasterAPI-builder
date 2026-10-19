@@ -17,19 +17,19 @@ class FieldZones:
             crs (int, optional): Output CRS EPSG code (default 4326).
         Returns:
             pd.DataFrame, GeoDataFrame, dict or GeoJSON depending on
-            output_format / spatial.
+            output_format.
         """
         endpoint = f"fields/{field_id}/zones"
         params = {}
         if page: params["page"] = page
         if limit: params["limit"] = limit
         if order: params["order"] = order
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if search: params["search"] = search
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
         data = self._get_paged(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     def field_zone_by_id(self, zone_id, lang=None, crs=None):
         """
@@ -40,14 +40,14 @@ class FieldZones:
             crs (int, optional): Output CRS EPSG code (default 4326).
         Returns:
             pd.DataFrame, GeoDataFrame, dict or GeoJSON depending on
-            output_format / spatial.
+            output_format.
         """
         endpoint = f"field-zones/{zone_id}"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     def field_zone_create(self, field_id, zone_type, geometry, name=None,
                           definitief=None, properties=None):
@@ -103,7 +103,7 @@ class FieldZones:
         if not payload:
             raise ValueError("Provide at least one field to update")
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if crs: params["crs"] = crs
         data = self._patch(endpoint, payload, params=params)
         return data
@@ -134,12 +134,12 @@ class FieldZones:
         """
         endpoint = f"fields/{field_id}/zones/geojson"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if sort_by: params["sort_by"] = sort_by
         if order: params["order"] = order
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)
 
     def field_zone_by_id_geojson(self, zone_id, lang=None, crs=None):
         """
@@ -153,7 +153,7 @@ class FieldZones:
         """
         endpoint = f"field-zones/{zone_id}/geojson"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
-        return self._format_output(data)
+        return self._format_output(data, crs=crs)

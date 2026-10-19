@@ -22,7 +22,7 @@ class ObservationsParameters:
         if page: params["page"] = page
         if limit: params["limit"] = limit
         if order: params["order"] = order
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
     

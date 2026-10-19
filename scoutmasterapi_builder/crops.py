@@ -37,13 +37,13 @@ class Crops:
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
 
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
       
 
         data = self._get_paged(endpoint, params=params, verbose=verbose)
         return self._format_output(data)
     
-    def crop_varieties(self, crop_code, sort_by=None, order=None, limit=None, page=None):
+    def crop_varieties(self, crop_code, sort_by=None, order=None, limit=None, page=None, lang=None):
         """
         Retrieve crop varieties for a given crop code.
         Args:
@@ -52,6 +52,7 @@ class Crops:
             order (str, optional): The sort order ('asc' or 'desc'). Defaults to None.
             limit (int, optional): The maximum number of results to return. Defaults to None.
             page (int, optional): The page number for pagination. Defaults to None.
+            lang (str, optional): Language for labels; defaults to the client's lang.
         Returns:
             Formatted output containing the list of crop varieties matching the query parameters.
         Example:
@@ -68,7 +69,8 @@ class Crops:
         if limit: params["limit"] = limit
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
-            
-        data = self._get_paged(endpoint, params=params)    
+        params["lang"] = lang or self.lang
+
+        data = self._get_paged(endpoint, params=params)
         
         return self._format_output(data)

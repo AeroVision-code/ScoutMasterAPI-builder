@@ -16,7 +16,7 @@ class Services:
         """
         endpoint = "services"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         data = self._get(endpoint, params=params)
         return self._format_output(data)
 
@@ -31,7 +31,7 @@ class Services:
         """
         endpoint = f"projects/{project_id}/services"
         params = {}
-        if lang: params["lang"] = lang
+        params["lang"] = lang or self.lang
         data = self._get(endpoint, params=params)
         return self._format_output(data)
 

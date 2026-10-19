@@ -62,9 +62,11 @@ class BaseAPI:
     _token_lock = threading.Lock()
     # Items per request when fetching all pages of a list (the API's maximum limit).
     PAGE_SIZE = 100
+    LANGUAGES = ("en", "nl", "de", "fr")
+    OUTPUT_FORMATS = ("gdf", "df", "geojson", "json")
 
-    def __init__(self, dev=False, output_format="df", version="v3", verbose=True,
-                 spatial=False, timeout=60, retries=3):
+    def __init__(self, dev=False, output_format="gdf", version="v3", verbose=True,
+                 spatial=None, timeout=60, retries=3, lang="en"):
         self.verbose = verbose  # toggle helper/status prints on or off
         # Seconds to wait for the server to connect/respond, per request.
         self.timeout = timeout
@@ -94,20 +96,35 @@ class BaseAPI:
         self.version = version
         self.api = "https://dev-api.scoutmaster.nl" if dev else "https://api.scoutmaster.nl"
         self.host = f"{self.api}/{self.version}/"
-        # output_format is the container ('df' or 'json'); `spatial` controls
-        # whether geometry-bearing responses are returned geometry-aware
-        # (GeoDataFrame for df, GeoJSON FeatureCollection for json).
-        # Legacy values 'gdf'/'geojson' map onto (container + spatial=True).
-        if output_format == "gdf":
-            output_format, spatial = "df", True
-        elif output_format == "geojson":
-            output_format, spatial = "json", True
-        if output_format not in ("df", "json"):
-            raise ValueError("output_format must be 'df' or 'json' (or legacy 'gdf'/'geojson')")
+        # 'gdf' -> GeoDataFrame, 'df' -> DataFrame, 'geojson' -> FeatureCollection,
+        # 'json' -> plain dicts/lists. 'gdf'/'geojson' fall back to 'df'/'json'
+        # for responses without geometry.
+        if output_format not in self.OUTPUT_FORMATS:
+            raise ValueError(f"output_format must be one of {self.OUTPUT_FORMATS}")
         self.output_format = output_format
-        self.spatial = spatial
-        self.lang = "en"
+        if spatial is not None:
+            self.spatial = spatial  # deprecated; adjusts output_format
+        if lang not in self.LANGUAGES:
+            raise ValueError(f"lang must be one of {self.LANGUAGES}")
+        # Sent as `lang` on every request whose endpoint accepts it, unless a
+        # method call passes its own lang.
+        self.lang = lang
         self._log(f"Initialized ScoutMaster API with host: {self.host}")
+
+    @property
+    def spatial(self):
+        """Deprecated: True when output_format is 'gdf' or 'geojson'."""
+        return self.output_format in ("gdf", "geojson")
+
+    @spatial.setter
+    def spatial(self, value):
+        warn("`spatial` is deprecated; use output_format='gdf' or 'geojson' "
+             "(geometry-aware) or 'df' or 'json' (plain).", DeprecationWarning, stacklevel=2)
+        tabular = self.output_format in ("gdf", "df")
+        if value:
+            self.output_format = "gdf" if tabular else "geojson"
+        else:
+            self.output_format = "df" if tabular else "json"
 
     def _log(self, *args, **kwargs):
         """Print only when verbose is enabled."""
@@ -400,9 +417,12 @@ class BaseAPI:
             return isinstance(data[0], dict) and "geometry" in data[0]
         return False
 
-    def _to_geodataframe(self, data):
+    def _to_geodataframe(self, data, crs=None):
         """Build a GeoDataFrame from a FeatureCollection or list/dict of records
-        whose 'geometry' may be GeoJSON, WKT, or hex-WKB."""
+        whose 'geometry' may be GeoJSON, WKT, or hex-WKB.
+
+        `crs` is the EPSG code the geometry was requested in (default 4326).
+        """
         if isinstance(data, dict) and "features" in data:
             gdf = gpd.GeoDataFrame.from_features(data["features"])
         else:
@@ -414,34 +434,41 @@ class BaseAPI:
                 rows.append(item)
             gdf = gpd.GeoDataFrame(rows, geometry="geometry")
         if "geometry" in gdf.columns and gdf.crs is None:
-            gdf.set_crs(epsg=4326, inplace=True)
+            gdf.set_crs(epsg=int(crs) if crs else 4326, inplace=True)
         return gdf
 
-    def _format_output(self, data):
-        """Format an API response according to self.output_format + self.spatial.
+    def _format_output(self, data, crs=None):
+        """Format an API response according to self.output_format.
 
-        output_format selects the container ('df' or 'json'); spatial selects
-        whether geometry-bearing responses are returned geometry-aware. When
-        spatial is requested but the endpoint returns no geometry, formatting
-        falls back to the plain container so non-spatial endpoints keep working.
+        'gdf' and 'geojson' return geometry-aware results for responses that
+        carry geometry, and fall back to 'df' / 'json' for responses that
+        don't, so non-spatial endpoints keep working. `crs` is the EPSG code
+        the geometry was requested in, used to label GeoDataFrames.
         """
-        if self.output_format not in ("json", "df"):
-            raise ValueError("output_format must be 'df' or 'json'")
-        
-        spatial = bool(getattr(self, "spatial", False)) and self._has_geometry(data)
+        fmt = self.output_format
+        if fmt not in self.OUTPUT_FORMATS:
+            raise ValueError(f"output_format must be one of {self.OUTPUT_FORMATS}")
+
+        geo = fmt in ("gdf", "geojson") and self._has_geometry(data)
         is_feature_collection = isinstance(data, dict) and "features" in data
 
-        if spatial and self.output_format == "json" and is_feature_collection:
+        if geo and fmt == "geojson" and is_feature_collection:
             return data  # already a FeatureCollection
 
-        elif spatial and self.output_format == "json":
-            return self._to_geodataframe(data).__geo_interface__
+        elif geo and fmt == "geojson":
+            return self._to_geodataframe(data, crs).__geo_interface__
 
-        elif spatial and self.output_format == "df":
-            flattened = [self._unwrap_dicts(item) for item in data]
-            return self._to_geodataframe(flattened)
-        
-        elif self.output_format == "json":
+        elif geo and is_feature_collection:  # gdf
+            features = [{**f, "properties": self._unwrap_dicts(f.get("properties") or {})}
+                        for f in data["features"]]
+            return self._to_geodataframe({**data, "features": features}, crs)
+
+        elif geo:  # gdf
+            # A list of records, or a single record (e.g. field_by_id).
+            records = data if isinstance(data, list) else [data]
+            return self._to_geodataframe([self._unwrap_dicts(r) for r in records], crs)
+
+        elif fmt in ("json", "geojson"):
             return data
 
         elif is_feature_collection:
@@ -454,11 +481,14 @@ class BaseAPI:
             return pd.json_normalize(data)
 
     def _unwrap_dicts(self, data):
+        """Return a copy of a record with nested dicts (field, crop, ...)
+        flattened into 'key.subkey' columns. The input is left unchanged."""
+        data = dict(data)
         for key in ["field", "crop", "address", "layer_type", "statistics", "preview"]:
-            if (key in data) and isinstance(data[key], dict):
-                for subkey in list(data[key].keys()):
-                    data[key + "." + subkey] = data[key][subkey]
-                data.pop(key, None)
+            if isinstance(data.get(key), dict):
+                nested = data.pop(key)
+                for subkey, value in nested.items():
+                    data[key + "." + subkey] = value
         return data
 
     def _validate_numeric_fields(self, data: dict, fields: list[str]):
