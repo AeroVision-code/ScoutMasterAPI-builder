@@ -1,6 +1,6 @@
 [project]
 name = "scoutmasterapi_builder"
-version = "0.0.7"
+version = "0.1.0"
 description = "ScoutMaster API client"
 readme = "README.md"
 license = "LicenseRef-Proprietary"
@@ -24,6 +24,9 @@ dependencies = [
     "requests>=2.31.0",
     "shapely>=2.1.2"
 ]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
 
 [tool.setuptools.packages.find]
 include = ["scoutmasterapi_builder*"]

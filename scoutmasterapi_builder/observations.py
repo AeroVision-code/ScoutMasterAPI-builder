@@ -28,7 +28,7 @@ class Observations:
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
     def observations_by_field(self, field_id, page=None, limit=None, order=None,
@@ -54,7 +54,7 @@ class Observations:
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
         if crs: params["crs"] = crs
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
     # Legacy alias
@@ -247,3 +247,60 @@ class Observations:
         if crs: params["crs"] = crs
         data = self._get(endpoint, params=params)
         return self._format_output(data)
+
+    # ── Images ───────────────────────────────────────────────────────────────
+    def observation_image_upload(self, observation_id, file_path):
+        """
+        Add an image to an observation (JPEG, PNG or WebP, max 20 MB).
+        The API signs the image on upload; the response's `integrity` block
+        carries its CID and signature status.
+        Args:
+            observation_id (str): UUID of the observation.
+            file_path (str): Local path to the image.
+        Returns:
+            dict: Created observation image.
+        """
+        endpoint = f"observations/{observation_id}/images"
+        return self._post_file(endpoint, file_path)
+
+    def observation_images(self, observation_id):
+        """
+        List the images of an observation, each with a presigned URL and its
+        signed provenance (`integrity`).
+        Args:
+            observation_id (str): UUID of the observation.
+        Returns:
+            pd.DataFrame or list: Observation images.
+        """
+        endpoint = f"observations/{observation_id}/images"
+        data = self._get(endpoint)
+        return self._format_output(data)
+
+    def observation_image_delete(self, observation_id, image_id):
+        """
+        Remove an image from an observation. The file and its signed metadata
+        are kept; only the link to the observation is removed.
+        Args:
+            observation_id (str): UUID of the observation.
+            image_id (str): ID of the image.
+        Returns:
+            bool: True on success (204 No Content).
+        """
+        endpoint = f"observations/{observation_id}/images/{image_id}"
+        return self._delete(endpoint)
+
+    def observation_image_metadata(self, observation_id, image_id):
+        """
+        Get the signed metadata JSON ({"data": ..., "sig": ...}) of an observation image.
+        Args:
+            observation_id (str): UUID of the observation.
+            image_id (str): ID of the image.
+        Returns:
+            dict: Signed metadata.
+        """
+        endpoint = f"observations/{observation_id}/images/{image_id}/metadata"
+        # Raw body: it *is* {data, sig}, so _get's "data" unwrapping would
+        # drop the signature.
+        response = self._request("GET", endpoint)
+        self._raise_for_status("GET", endpoint, response)
+        return response.json()

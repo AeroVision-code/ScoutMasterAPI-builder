@@ -1,7 +1,3 @@
-from .base import conceptual_class
-
-
-@conceptual_class
 class Subscriptions:
     def subscriptions_by_project(self, project_id, page=None, limit=None, order=None,
                                  sort_by=None, subscription_id=None):
@@ -24,7 +20,7 @@ class Subscriptions:
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
         if subscription_id is not None: params["subscription_id"] = subscription_id
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
     def subscriptions_by_field(self, field_id, page=None, limit=None, order=None,
@@ -48,7 +44,7 @@ class Subscriptions:
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
         if subscription_id is not None: params["subscription_id"] = subscription_id
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
     def subscription_create(self, field_id, user_id, subscription_id, started_at=None, ended_at=None):

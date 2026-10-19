@@ -1,10 +1,20 @@
 import pandas as pd
 
-from .base import conceptual_class
+from .base import conceptual
 
 
-@conceptual_class
 class Cultivations:
+    @conceptual
+    def cultivation_event_types(self):
+        """
+        Get the event types that can be used when creating or updating a
+        cultivation calendar.
+        Returns:
+            pd.DataFrame or list: Event types.
+        """
+        data = self._get("calendars/event-types")
+        return self._format_output(data)
+
     def cultivations(self, project_id, page=None, limit=None, order=None,
                      lang=None, sort_by=None):
         """
@@ -26,7 +36,7 @@ class Cultivations:
         if order: params["order"] = order
         if lang: params["lang"] = lang
         if sort_by: params["sort_by"] = sort_by
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
     def cultivations_by_field(self, field_id, lang=None):

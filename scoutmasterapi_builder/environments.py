@@ -215,3 +215,37 @@ class Environments:
         """
         data = self._delete(f"environments/{environment_id}/services/{service_id}")
         return data
+
+    # ── Service lab client numbers ───────────────────────────────────────────
+
+    def environment_service_client_add(self, environment_id, service_id, external_client_id):
+        """
+        Register a lab client number (klantnummer) for an integration service
+        (EuroFins, Normec). Only reports issued to a registered client number
+        can be validated for projects in this environment.
+        Args:
+            environment_id (str): ID of the environment.
+            service_id (int): Numeric ID of the service.
+            external_client_id (str): Lab client number.
+        Returns:
+            dict: Created client record.
+        """
+        data = self._post(
+            f"environments/{environment_id}/services/{service_id}/clients",
+            {"external_client_id": str(external_client_id)},
+        )
+        return data
+
+    def environment_service_client_remove(self, environment_id, service_id, client_id):
+        """
+        Remove a lab client number from an integration service. Researches
+        already saved under it are kept; new reports for it are rejected.
+        Args:
+            environment_id (str): ID of the environment.
+            service_id (int): Numeric ID of the service.
+            client_id (str): ID of the client record.
+        Returns:
+            dict: Removed client record.
+        """
+        data = self._delete(f"environments/{environment_id}/services/{service_id}/clients/{client_id}")
+        return data

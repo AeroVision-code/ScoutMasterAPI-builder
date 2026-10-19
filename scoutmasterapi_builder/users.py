@@ -1,12 +1,48 @@
 import requests
 
-from .base import conceptual_class
+from .base import conceptual
 
 
-@conceptual_class
 class Users:
+    # ── Own account / user lookup ───────────────────────────────────────────
+
+    def user_me(self):
+        """
+        Get the authenticated user's own account, including their profile
+        image (image_path).
+        Returns:
+            dict: User data.
+        """
+        data = self._get("users/me")
+        return data
+
+    def user_by_id(self, user_id):
+        """
+        Get a single user by id, including their profile image (image_path).
+        Accessible by admin clients, platform admins, or the user themselves.
+        Args:
+            user_id (str): Cognito sub of the user.
+        Returns:
+            dict: User data.
+        """
+        data = self._get(f"users/{user_id}")
+        return data
+
+    def user_upload_image(self, user_id, file_path):
+        """
+        Upload a profile image for a user.
+        Accessible by admin clients, platform admins, or the user themselves.
+        Args:
+            user_id (str): Cognito sub of the user.
+            file_path (str): Local path to the image.
+        Returns:
+            dict: Updated user data.
+        """
+        return self._post_file(f"users/{user_id}/image", file_path)
+
     # ── Platform-level user management ──────────────────────────────────────
 
+    @conceptual
     def get_all_users(self, page=None, limit=None, order=None, sort_by=None):
         """
         Get all users in the platform (admin only).
@@ -24,9 +60,10 @@ class Users:
         if limit: params["limit"] = limit
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
+    @conceptual
     def create_user(self, username, email, name=None, phone_number=None, temporary_password=None):
         """
         Create a new user in Cognito (admin only).
@@ -47,6 +84,7 @@ class Users:
         data = self._post("users", payload)
         return data
 
+    @conceptual
     def delete_user(self, user_id):
         """
         Delete a user by their Cognito sub (admin only).
@@ -59,6 +97,7 @@ class Users:
         data = self._delete(f"users/{user_id}")
         return data
 
+    @conceptual
     def enable_user(self, user_id):
         """
         Enable a previously disabled user (admin only).
@@ -70,6 +109,7 @@ class Users:
         data = self._post(f"users/{user_id}/enable")
         return data
 
+    @conceptual
     def disable_user(self, user_id):
         """
         Disable a user — prevents sign-in and invalidates sessions (admin only).
@@ -81,6 +121,7 @@ class Users:
         data = self._post(f"users/{user_id}/disable")
         return data
 
+    @conceptual
     def resend_credentials(self, user_id, temporary_password=None):
         """
         Resend the welcome credentials email to a user (admin only).
@@ -98,6 +139,7 @@ class Users:
 
     # ── Project-scoped user methods ──────────────────────────────────────────
 
+    @conceptual
     def project_users(self, project_id, page=None, limit=None, order=None, sort_by=None):
         """
         Get all users who have access to the project.
@@ -116,9 +158,10 @@ class Users:
         if limit: params["limit"] = limit
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
+    @conceptual
     def project_user(self, project_id, user_id):
         """
         Get a single user's membership info within a project.
@@ -130,6 +173,22 @@ class Users:
         """
         endpoint = f"projects/{project_id}/users/{user_id}"
         data = self._get(endpoint)
+        return data
+
+    @conceptual
+    def project_user_remove(self, project_id, user_id):
+        """
+        Remove a user from a project. Owners can remove anyone; members can
+        only remove themselves. The removed user's collections are handed over
+        to a remaining owner.
+        Args:
+            project_id (str): UUID of the project.
+            user_id (str): ID of the user.
+        Returns:
+            dict: Response data.
+        """
+        endpoint = f"projects/{project_id}/users/{user_id}"
+        data = self._delete(endpoint)
         return data
 
     # ── Legacy aliases (kept for backwards compatibility) ───────────────────

@@ -1,7 +1,3 @@
-from .base import conceptual_class
-
-
-@conceptual_class
 class Benchmarking:
     def benchmark_peergroup(self, cultivation_ids, layer_type_id=None, x_axis=None):
         """

@@ -1,11 +1,25 @@
 import time
 import functools
+import hashlib
+import threading
+import mimetypes
+import os.path
 import pandas as pd
 import geopandas as gpd
 from requests.auth import HTTPBasicAuth
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import requests
 import json
 from warnings import warn
+
+
+class ScoutMasterAPIError(Exception):
+    """A failed ScoutMaster API call. `status_code` is None for network errors."""
+    def __init__(self, message, status_code=None, response_text=None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.response_text = response_text
 
 
 def conceptual(func):
@@ -39,16 +53,36 @@ from shapely.wkt import loads as wkt_loads
 from shapely.wkb import loads as wkb_loads
 from shapely.geometry import mapping, shape
 import binascii
-from shapely.wkt import loads as wkt_loads
-from shapely.wkb import loads as wkb_loads
-from shapely.geometry import mapping, shape
-import binascii
 
 class BaseAPI:
     """Core HTTP requests and output formatting"""
+    # Process-wide token cache: (token_url, client_id, secret hash) -> (token, expiry).
+    # In memory only; nothing is written to disk.
+    _shared_tokens = {}
+    _token_lock = threading.Lock()
+    # Items per request when fetching all pages of a list (the API's maximum limit).
+    PAGE_SIZE = 100
+
     def __init__(self, dev=False, output_format="df", version="v3", verbose=True,
-                 spatial=False):
+                 spatial=False, timeout=60, retries=3):
         self.verbose = verbose  # toggle helper/status prints on or off
+        # Seconds to wait for the server to connect/respond, per request.
+        self.timeout = timeout
+        # One session per client keeps connections open between calls. The
+        # adapter retries connection errors, and 429/5xx responses on
+        # idempotent methods (GET/PUT/DELETE) only, so a POST that may have
+        # reached the server is never sent twice. Retry-After is respected.
+        # A read timeout is retried once at most, so a hanging endpoint costs
+        # about 2x timeout rather than (retries + 1)x.
+        retry = Retry(
+            total=retries, read=min(retries, 1), backoff_factor=1,
+            status_forcelist=(429, 500, 502, 503, 504),
+            raise_on_status=False,
+        )
+        self._session = requests.Session()
+        adapter = HTTPAdapter(max_retries=retry)
+        self._session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
         self.token_url = "https://eu-central-1fq4qt7w6q.auth.eu-central-1.amazoncognito.com/oauth2/token"
         self.access_token = None
         # Credentials + expiry are cached so the token can be reused and
@@ -80,14 +114,43 @@ class BaseAPI:
         if self.verbose:
             print(*args, **kwargs)
 
-    def authenticate(self, client_id, client_secret):
+    def authenticate(self, client_id=None, client_secret=None):
+        """Authenticate with client credentials.
+
+        Without arguments, the SM_CLIENT_ID and SM_CLIENT_SECRET environment
+        variables are used (load a .env file first, e.g. with python-dotenv).
+        """
+        client_id = client_id or os.getenv("SM_CLIENT_ID")
+        client_secret = client_secret or os.getenv("SM_CLIENT_SECRET")
+        if not client_id or not client_secret:
+            raise ValueError(
+                "No credentials: pass client_id and client_secret, or set the "
+                "SM_CLIENT_ID and SM_CLIENT_SECRET environment variables."
+            )
         # Cache credentials so the token can be re-fetched automatically on expiry.
         self._client_id = client_id
         self._client_secret = client_secret
-        self._fetch_token()
+        # Drop any token from earlier credentials; _ensure_token() then reuses a
+        # still-valid shared token for these credentials or fetches a new one.
+        self.access_token = None
+        self._token_expiry = 0.0
+        self._ensure_token()
         self._log("✅ Successfully authenticated ScoutMaster API")
         self._log("ENVIRONMENT: ", "DEV" if self.api.endswith("dev-api.scoutmaster.nl") else "PROD")
         self._log("HOST:", self.host)
+
+    def set_access_token(self, access_token, expires_at=None):
+        """Use an access token obtained elsewhere (e.g. a shared SSM cache).
+
+        Args:
+            access_token (str): Cognito access token.
+            expires_at (float, optional): Expiry as epoch seconds. Without it
+                the token is used until the API rejects it. If authenticate()
+                was called before, a new token is fetched with those
+                credentials once this one is about to expire.
+        """
+        self.access_token = access_token
+        self._token_expiry = float("inf") if expires_at is None else float(expires_at)
 
     def _fetch_token(self):
         """Request a fresh access token via the client_credentials grant.
@@ -97,12 +160,18 @@ class BaseAPI:
         when it is close to expiring (tracked via `expires_in`).
         """
         data = {'grant_type': 'client_credentials'}
-        session = requests.Session()
-        session.auth = HTTPBasicAuth(self._client_id, self._client_secret)
-        response = session.post(self.token_url, data=data, headers={'Accept': 'application/json'})
-        response.raise_for_status()
+        try:
+            response = self._session.post(
+                self.token_url, data=data, headers={'Accept': 'application/json'},
+                auth=HTTPBasicAuth(self._client_id, self._client_secret), timeout=self.timeout,
+            )
+        except requests.exceptions.RequestException as e:
+            raise ScoutMasterAPIError(f"Authentication request failed: {e}") from e
         if response.status_code != 200:
-            raise Exception(f"Authentication failed: {response.status_code} {response.text}")
+            raise ScoutMasterAPIError(
+                f"Authentication failed: {response.status_code} {response.text}",
+                status_code=response.status_code, response_text=response.text,
+            )
 
         payload = response.json()
         self.access_token = payload.get('access_token')
@@ -112,17 +181,41 @@ class BaseAPI:
         # Cognito returns the token lifetime in seconds (default 3600).
         expires_in = payload.get('expires_in', 3600)
         self._token_expiry = time.time() + expires_in
+        BaseAPI._shared_tokens[self._token_cache_key()] = (self.access_token, self._token_expiry)
+
+    def _token_cache_key(self):
+        # The secret is part of the key (hashed, so it isn't kept in another
+        # place in clear text): authenticating with a wrong secret must not
+        # pick up a token issued for the right one.
+        secret_hash = hashlib.sha256(self._client_secret.encode()).hexdigest()
+        return (self.token_url, self._client_id, secret_hash)
 
     def _token_valid(self):
         return bool(self.access_token) and time.time() < (self._token_expiry - self._expiry_skew)
 
     def _ensure_token(self):
-        """Reuse the cached token; transparently re-fetch it when near expiry."""
+        """Reuse the cached token; transparently re-fetch it when near expiry.
+
+        Tokens are shared by all client objects in this process that use the
+        same credentials, so new instances and repeated authenticate() calls
+        don't each request a token of their own.
+        """
         if self._token_valid():
             return
         if not self._client_id or not self._client_secret:
+            # A token assigned directly to `access_token` (how older callers
+            # seed one from a shared cache) has no known expiry and can't be
+            # refreshed here, so use it as-is.
+            if self.access_token:
+                return
             raise Exception("Call authenticate() first")
-        self._fetch_token()
+        with BaseAPI._token_lock:
+            shared = BaseAPI._shared_tokens.get(self._token_cache_key())
+            if shared:
+                self.access_token, self._token_expiry = shared
+                if self._token_valid():
+                    return
+            self._fetch_token()
 
     def _check_auth(self):
         self._ensure_token()
@@ -131,144 +224,154 @@ class BaseAPI:
         self._check_auth()
         return {'Authorization': f'Bearer {self.access_token}', 'Content-Type': 'application/json'}
 
-    def _get(self, endpoint, params=None, verbose=False):
-        """Internal GET request helper."""
+    def _request(self, method, endpoint, **kwargs):
+        """Send an authenticated request on the shared session.
+
+        Retries (connection errors; 429/5xx on idempotent methods) are handled
+        by the session's adapter. Network failures and timeouts are raised as
+        ScoutMasterAPIError; HTTP error statuses are left to the caller.
+        """
+        self._check_auth()
+        headers = {'Authorization': f'Bearer {self.access_token}'}
+        if "json" in kwargs:
+            headers['Content-Type'] = 'application/json'
         try:
-            self._check_auth()
-        
-            response = requests.get(
-                f"{self.host}{endpoint}",
-                headers=self._get_headers(),
-                params=params  # requests will handle encoding
+            return self._session.request(
+                method, f"{self.host}{endpoint}",
+                headers=headers, timeout=self.timeout, **kwargs,
             )
-            response.raise_for_status()
-            response_json = response.json()
-            data = response_json.get("data", response_json)
-            if verbose:
-                count = response_json.get("count", len(data) if hasattr(data, "__len__") else 1)
-                self._log(f"GET {endpoint} → {count} record(s)")
-            return data
         except requests.exceptions.RequestException as e:
-            rtn_text = response.text.lower()
-            code = response.status_code
-            if (code // 100 == 4) and ("not found" in rtn_text) or ("validation failed" in rtn_text):
-                warn(response.text)
-                return []
+            raise ScoutMasterAPIError(f"{method} {endpoint} failed: {e}") from e
+
+    def _raise_for_status(self, method, endpoint, response):
+        if not response.ok:
+            raise ScoutMasterAPIError(
+                f"{method} {endpoint} failed: {response.status_code} {response.text}",
+                status_code=response.status_code, response_text=response.text,
+            )
+
+    def _response_body(self, method, endpoint, response):
+        """Raise on an error status, otherwise return the parsed JSON body ({} if empty)."""
+        self._raise_for_status(method, endpoint, response)
+        if not response.content:
+            return {}
+        try:
+            return response.json()
+        except ValueError:
+            raise ScoutMasterAPIError(
+                f"{method} {endpoint} did not return valid JSON. "
+                f"Response content: {response.text}",
+                status_code=response.status_code, response_text=response.text,
+            )
+
+    @staticmethod
+    def _unwrap_data(body):
+        return body.get("data", body) if isinstance(body, dict) else body
+
+    def _response_data(self, method, endpoint, response):
+        """Raise on an error status, otherwise return the body's `data` (or the body)."""
+        return self._unwrap_data(self._response_body(method, endpoint, response))
+
+    def _get_body(self, endpoint, params=None):
+        """GET and return the full JSON body, or None for a 404 'not found' (with a warning)."""
+        response = self._request("GET", endpoint, params=params)
+        if response.status_code == 404 and "not found" in response.text.lower():
+            warn(response.text)
+            return None
+        return self._response_body("GET", endpoint, response)
+
+    def _get(self, endpoint, params=None, verbose=False):
+        """Internal GET request helper.
+
+        A 404 for a resource that doesn't exist returns [] with a warning;
+        any other error status raises ScoutMasterAPIError.
+        """
+        body = self._get_body(endpoint, params)
+        data = [] if body is None else self._unwrap_data(body)
+        if verbose:
+            count = len(data) if hasattr(data, "__len__") else 1
+            self._log(f"GET {endpoint} → {count} record(s)")
+        return data
+
+    def _get_paged(self, endpoint, params=None, verbose=False):
+        """GET a paginated list endpoint.
+
+        If the caller set `limit` or `page`, this is a single request, as with
+        _get(). Otherwise every page is requested (PAGE_SIZE items each, the
+        API's maximum) and the items of all pages are returned as one list.
+        """
+        params = dict(params or {})
+        if "limit" in params or "page" in params:
+            return self._get(endpoint, params=params, verbose=verbose)
+
+        items, page = [], 1
+        while True:
+            body = self._get_body(endpoint, {**params, "limit": self.PAGE_SIZE, "page": page})
+            if body is None:
+                break
+            data = self._unwrap_data(body)
+            if not isinstance(data, list):
+                return data  # not a list after all; nothing to combine
+            items.extend(data)
+            pagination = body.get("pagination") if isinstance(body, dict) else None
+            if pagination and pagination.get("total_pages") is not None:
+                last = page >= pagination["total_pages"]
             else:
-                raise Exception(f"GET request failed: {e}")
+                # No pagination info: a short page is the last one, and more
+                # than PAGE_SIZE items means the server ignored the limit and
+                # already returned everything.
+                last = len(data) != self.PAGE_SIZE
+            if last or not data:
+                break
+            page += 1
+        if verbose:
+            self._log(f"GET {endpoint} → {len(items)} record(s) in {page} page(s)")
+        return items
 
     def _post(self, endpoint, payload=None, files=None):
         """
         Internal helper to send a POST request to the API.
-        
+
         Supports JSON payloads (default) or multipart/form-data if files are provided.
         """
-        self._check_auth()
-
-        # Default headers for JSON
-        headers = {
-            'Authorization': f'Bearer {self.access_token}'
-        }
-
-        # If sending JSON (no files)
         if files is None:
-            headers['Content-Type'] = 'application/json'
-            request_args = {"json": payload or {}}
+            response = self._request("POST", endpoint, json=payload or {})
         else:
-            # multipart/form-data automatically set by requests if files are provided
-            request_args = {"data": payload or {}, "files": files}
+            # multipart/form-data is set by requests when files are provided
+            response = self._request("POST", endpoint, data=payload or {}, files=files)
+        return self._response_data("POST", endpoint, response)
 
-        try:
-            response = requests.post(f"{self.host}{endpoint}", headers=headers, **request_args)
+    def _post_file(self, endpoint, file_path, payload=None):
+        """POST a local file as multipart/form-data (form field `file`)."""
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if mime_type is None:
+            mime_type = 'application/octet-stream'
+        with open(file_path, "rb") as fh:
+            files = {"file": (os.path.basename(file_path), fh, mime_type)}
+            return self._post(endpoint, payload=payload, files=files)
 
-            # First, check if the response has content
-            if response.content:
-                try:
-                    response_json = response.json()
-                except ValueError:
-                    # Non-JSON response
-                    raise Exception(
-                        f"POST request to {endpoint} did not return valid JSON. "
-                        f"Response content: {response.text}"
-                    )
-            else:
-                response_json = {}
-
-            # Handle response based on status code
-            if response.status_code in [200, 201]:
-                return response_json.get("data", response_json)
-            elif response.status_code == 404:
-                return []
-            else:
-                raise Exception(
-                    f"Failed POST request to {endpoint}: {response.status_code} {response.text}"
-                )
-
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"POST request failed: {e}")
-        
-
-    def _patch(self, endpoint, payload=None):
+    def _patch(self, endpoint, payload=None, params=None):
         """Internal helper to send a PATCH request to the API."""
-        self._check_auth()
-        headers = {
-            'Authorization': f'Bearer {self.access_token}',
-            'Content-Type': 'application/json',
-        }
-        try:
-            response = requests.patch(
-                f"{self.host}{endpoint}",
-                headers=headers,
-                json=payload or {},
-            )
-            if response.content:
-                try:
-                    response_json = response.json()
-                except ValueError:
-                    raise Exception(
-                        f"PATCH request to {endpoint} did not return valid JSON. "
-                        f"Response content: {response.text}"
-                    )
-            else:
-                response_json = {}
-            if response.status_code in (200, 201):
-                return response_json.get("data", response_json)
-            else:
-                raise Exception(
-                    f"Failed PATCH request to {endpoint}: {response.status_code} {response.text}"
-                )
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"PATCH request failed: {e}")
+        response = self._request("PATCH", endpoint, json=payload or {}, params=params)
+        return self._response_data("PATCH", endpoint, response)
+
+    def _put(self, endpoint, payload=None):
+        """Internal helper to send a PUT request to the API."""
+        response = self._request("PUT", endpoint, json=payload or {})
+        return self._response_data("PUT", endpoint, response)
 
     def _delete(self, endpoint):
-        """Internal helper to send a DELETE request to the API."""
-        self._check_auth()
-        headers = {
-            'Authorization': f'Bearer {self.access_token}',
-            'Content-Type': 'application/json',
-        }
-        try:
-            response = requests.delete(f"{self.host}{endpoint}", headers=headers)
-            if response.status_code == 204:
-                return True
-            if response.content:
-                try:
-                    response_json = response.json()
-                except ValueError:
-                    raise Exception(
-                        f"DELETE request to {endpoint} did not return valid JSON. "
-                        f"Response content: {response.text}"
-                    )
-            else:
-                response_json = {}
-            if response.status_code == 200:
-                return response_json.get("data", response_json)
-            else:
-                raise Exception(
-                    f"Failed DELETE request to {endpoint}: {response.status_code} {response.text}"
-                )
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"DELETE request failed: {e}")
+        """Internal helper to send a DELETE request to the API.
+
+        Returns True on 204 No Content, otherwise the response data.
+        """
+        response = self._request("DELETE", endpoint)
+        if response.status_code == 204:
+            return True
+        return self._response_data("DELETE", endpoint, response)
+
     def _parse_geometry(self, geom):
         """Parse geometry from string (WKT/WKB) or dict (GeoJSON) to shapely geometry."""
         if geom is None:

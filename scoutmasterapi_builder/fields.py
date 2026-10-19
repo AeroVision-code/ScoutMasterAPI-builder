@@ -1,3 +1,4 @@
+import os.path
 import pandas as pd
 import requests
 
@@ -28,7 +29,7 @@ class Fields:
         # spatial shaping is done client-side from the WKT geometry the regular
         # endpoint returns, so pagination is preserved. Use fields_geojson() for
         # the server's GeoJSON FeatureCollection.
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
     def field_by_id(self, field_id):
@@ -115,6 +116,96 @@ class Fields:
         endpoint = f"fields/{field_id}"
         deleted = self._delete(endpoint)
         if deleted:
-            print(f" > Field \033[94m{field_id}\033[0m deleted successfully.")
+            self._log(f" > Field \033[94m{field_id}\033[0m deleted successfully.")
         return deleted
+
+    # ── GeoJSON variants (not paginated; return a FeatureCollection) ─────────
+    def fields_geojson(self, project_id, lang=None, sort_by=None, order=None, crs=None):
+        """
+        Get all fields of a project as a GeoJSON FeatureCollection.
+        Args:
+            project_id (str): UUID of the project.
+            lang (str, optional): Language for field labels.
+            sort_by (str, optional): 'name', 'created_at' or 'updated_at'.
+            order (str, optional): 'asc' or 'desc'.
+            crs (int, optional): Output CRS EPSG code (default 4326).
+        Returns:
+            GeoDataFrame, dict, or JSON depending on output_format.
+        """
+        endpoint = f"projects/{project_id}/fields/geojson"
+        params = {}
+        if lang: params["lang"] = lang
+        if sort_by: params["sort_by"] = sort_by
+        if order: params["order"] = order
+        if crs: params["crs"] = crs
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
+
+    def field_by_id_geojson(self, field_id, lang=None, crs=None):
+        """
+        Get a single field as a GeoJSON FeatureCollection.
+        Args:
+            field_id (str): UUID of the field.
+            lang (str, optional): Language for field labels.
+            crs (int, optional): Output CRS EPSG code (default 4326).
+        Returns:
+            GeoDataFrame, dict, or JSON depending on output_format.
+        """
+        endpoint = f"fields/{field_id}/geojson"
+        params = {}
+        if lang: params["lang"] = lang
+        if crs: params["crs"] = crs
+        data = self._get(endpoint, params=params)
+        return self._format_output(data)
+
+    # ── Machine-data uploads (currently: John Deere seeding shapefile .zip) ──
+    def field_upload_url(self, field_id, filename=None):
+        """
+        Get a presigned direct-to-S3 upload URL for a machine-data file tied to
+        a field. PUT the file to `upload_url` with Content-Type application/zip
+        within ~5 minutes, then poll field_upload_job() with `job_id`.
+        Args:
+            field_id (str): UUID of the field.
+            filename (str, optional): Original filename, stored with the file.
+        Returns:
+            dict: {"upload_url": ..., "s3_key": ..., "job_id": ...}
+        """
+        endpoint = f"fields/{field_id}/upload-file"
+        payload = {}
+        if filename: payload["filename"] = filename
+        data = self._post(endpoint, payload)
+        return data
+
+    def field_upload_file(self, field_id, file_path):
+        """
+        Upload a machine-data .zip for a field: presigns the URL, then PUTs the
+        file straight to S3. Poll field_upload_job() with the returned job_id.
+        Args:
+            field_id (str): UUID of the field.
+            file_path (str): Local path to the .zip file.
+        Returns:
+            dict: {"upload_url": ..., "s3_key": ..., "job_id": ...}
+        """
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        data = self.field_upload_url(field_id, filename=os.path.basename(file_path))
+        # The URL is presigned for application/zip; S3 rejects any other type.
+        self.upload_file(file_path, data["upload_url"], content_type="application/zip",
+                         verbose=self.verbose)
+        return data
+
+    def field_upload_job(self, field_id, job_id):
+        """
+        Get the status of an upload job created by field_upload_url().
+        Poll until status is DONE or FAILED; `result` carries the stage summary
+        or, once FAILED, the reason.
+        Args:
+            field_id (str): UUID of the field.
+            job_id (str): ID of the upload job.
+        Returns:
+            dict: Upload job (id, status, result, filename, created_at, expires_at).
+        """
+        endpoint = f"fields/{field_id}/upload-jobs/{job_id}"
+        data = self._get(endpoint)
+        return data
 

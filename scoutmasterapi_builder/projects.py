@@ -28,7 +28,7 @@ class Projects:
             if order: params["order"] = order
             if lang: params["lang"] = lang
             if sort_by: params["sort_by"] = sort_by
-            data = self._get(endpoint, params=params)
+            data = self._get_paged(endpoint, params=params)
             return self._format_output(data)
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
@@ -144,6 +144,17 @@ class Projects:
         endpoint = f"projects/{project_id}"
         data = self._patch(endpoint, {"name": name, "abbreviation": abbreviation})
         return data
+
+    def project_delete(self, project_id):
+        """
+        Delete a project by ID.
+        Args:
+            project_id (str): UUID of the project.
+        Returns:
+            bool: True if the project was deleted (204 No Content).
+        """
+        endpoint = f"projects/{project_id}"
+        return self._delete(endpoint)
 
     @conceptual
     def update_user_role(self, project_id, user_id, role):

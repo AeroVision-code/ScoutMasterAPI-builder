@@ -81,7 +81,7 @@ class ResearchCategories:
         if limit: params["limit"] = limit
         if order: params["order"] = order
         if sort_by: params["sort_by"] = sort_by
-        data = self._get(endpoint, params=params)
+        data = self._get_paged(endpoint, params=params)
         return self._format_output(data)
 
     def validate_report(self, research_category_id, file_path):
