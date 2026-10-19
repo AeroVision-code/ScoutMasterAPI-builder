@@ -32,3 +32,49 @@ jobs:
         run: pip install -e ".[test]"
       - name: Run tests
         run: pytest tests -v
+
+  secrets:
+    # Scans the commits of this push / pull request plus the current files.
+    # Not the whole history: commit 8951fb8 (2025-09-15) contains a known
+    # leaked Cognito client secret, which would fail every run until the
+    # history is rewritten.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.18.4"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed to scan commit ranges
+      - name: Install gitleaks
+        # Into RUNNER_TEMP, outside the checkout, so the binary isn't scanned.
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" version
+      - name: Scan new commits
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            RANGE="$PR_BASE..$PR_HEAD"
+          elif [ "$EVENT" = "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="$BEFORE..$GITHUB_SHA"
+          elif [ "$REF_NAME" != "main" ]; then
+            RANGE="origin/main..$GITHUB_SHA"  # new branch: everything not on main yet
+          else
+            echo "Nightly / manual run on main: only the current files are scanned."
+            exit 0
+          fi
+          echo "Scanning commits $RANGE"
+          "$RUNNER_TEMP/gitleaks" detect --source . --redact --verbose --log-opts="$RANGE"
+      - name: Scan current files
+        # Exactly the committed tree (no .git internals, no build leftovers).
+        run: |
+          mkdir "$RUNNER_TEMP/tree"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/tree"
+          "$RUNNER_TEMP/gitleaks" detect --source "$RUNNER_TEMP/tree" --no-git --redact --verbose
