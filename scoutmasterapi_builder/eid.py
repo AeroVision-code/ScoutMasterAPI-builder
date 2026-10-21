@@ -5,9 +5,9 @@ from .base import conceptual_class
 class Eid:
     """eID / eVault (W3DS) integration.
 
-    The browser sign-in endpoints (login-offer, signup, deeplink-result and the
-    wallet callback) are left out: they are called by the frontend or the
-    wallet app, not by an API client.
+    The browser sign-in endpoints (login-offer, signup, signup/verify,
+    deeplink-result and the wallet callback) are left out: they are called by
+    the frontend or the wallet app, not by an API client.
     """
 
     # ── Account link ─────────────────────────────────────────────────────────
@@ -63,6 +63,18 @@ class Eid:
             dict: {"fieldIds": [...]}
         """
         return self._get("eid/synced-fields")
+
+    def eid_vault_fields(self, project_id):
+        """
+        Get the parcels other platforms (FarmMaps) wrote into the caller's
+        eVault, and whether each one is in the project already; for picking
+        which ones to import with eid_sync_fields().
+        Args:
+            project_id (str): UUID of the project.
+        Returns:
+            dict: {"fields": [...]}
+        """
+        return self._get("eid/vault-fields", params={"projectId": project_id})
 
     def eid_field_owners(self):
         """

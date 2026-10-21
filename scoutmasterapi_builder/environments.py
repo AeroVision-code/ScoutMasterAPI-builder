@@ -142,6 +142,20 @@ class Environments:
         data = self._delete(f"environments/{environment_id}/users/{user_id}")
         return data
 
+    def environment_user_removal_check(self, environment_id, user_id):
+        """
+        What environment_user_remove() would do right now, without doing it:
+        whether the whole account is deleted, which projects go with it, and
+        what blocks the removal.
+        Args:
+            environment_id (str): ID of the environment.
+            user_id (str): Cognito sub of the user.
+        Returns:
+            dict: {"can_remove", "account_deleted", "blockers", "projects_to_delete"}
+        """
+        data = self._get(f"environments/{environment_id}/users/{user_id}/removal-check")
+        return data
+
     # ── Projects ─────────────────────────────────────────────────────────────
 
     def environment_projects(self, environment_id):

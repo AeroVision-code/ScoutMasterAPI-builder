@@ -1,11 +1,26 @@
 import mimetypes
 import os
 
-from .base import conceptual_class
+from .base import conceptual
 
 
-@conceptual_class
 class Reports:
+    def report_by_id(self, report_id):
+        """
+        Get one report with a fresh presigned download URL in `path`.
+        The URLs in the project's report list expire after an hour; call this
+        right before downloading the PDF.
+        Args:
+            report_id (str): UUID of the report.
+        Returns:
+            dict: Report data (id, title, path, created_at, updated_at,
+            field_ids, observation_ids).
+        """
+        endpoint = f"reports/{report_id}"
+        data = self._get(endpoint)
+        return data
+
+    @conceptual
     def reports(self, project_id):
         """
         List all reports for a project.
@@ -18,6 +33,7 @@ class Reports:
         data = self._get(endpoint)
         return self._format_output(data)
 
+    @conceptual
     def report_create(self, project_id, title, user_id, file_path):
         """
         Upload a new report file to a project.
@@ -45,6 +61,7 @@ class Reports:
             files["file"][1].close()
         return response
 
+    @conceptual
     def report_update(self, report_id, title):
         """
         Update the title of a report.
@@ -58,6 +75,7 @@ class Reports:
         data = self._patch(endpoint, {"title": title})
         return data
 
+    @conceptual
     def report_delete(self, report_id):
         """
         Delete a report by ID.
@@ -70,6 +88,7 @@ class Reports:
         data = self._delete(endpoint)
         return data
 
+    @conceptual
     def report_reference_add(self, report_id, ref_id, ref_type):
         """
         Add a reference (field or observation) to a report.
@@ -86,6 +105,7 @@ class Reports:
         data = self._post(endpoint, {"ref_id": ref_id, "ref_type": ref_type})
         return data
 
+    @conceptual
     def report_references(self, report_id):
         """
         List all references attached to a report.
@@ -98,6 +118,7 @@ class Reports:
         data = self._get(endpoint)
         return self._format_output(data)
 
+    @conceptual
     def report_reference_delete(self, reference_id):
         """
         Delete a report reference by its numeric ID.

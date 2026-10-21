@@ -29,9 +29,14 @@ from scoutmasterapi_builder.api import ScoutMasterAPI
 
 SPEC_URL = "https://api.scoutmaster.nl/swagger-v3-full.json"
 
-# Spec operations the client deliberately doesn't wrap: browser sign-in steps
-# and the callback the eID wallet app posts to.
-EXCLUDED = {"LoginOffer", "Signup", "DeeplinkResult", "WalletCallback"}
+# Spec operations the client deliberately doesn't wrap.
+EXCLUDED = {
+    # Browser sign-in steps and the callback the eID wallet app posts to.
+    "LoginOffer", "Signup", "VerifySignup", "DeeplinkResult", "WalletCallback",
+    # Managing your own account: the API only allows this for people signed in
+    # through the frontend (requireOwnFrontendUser), never for an API client.
+    "DeleteMe", "GetMyDeletionCheck",
+}
 
 # Dummy values for arguments that are validated before any request is made.
 SPECIAL_ARGS = {
