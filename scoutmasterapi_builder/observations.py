@@ -2,6 +2,9 @@ import pandas as pd
 
 from .base import conceptual_class
 
+# Default for arguments where None means "clear this value".
+_UNSET = object()
+
 
 @conceptual_class
 class Observations:
@@ -119,7 +122,7 @@ class Observations:
         )
 
     def observation_update(self, observation_id, reference_code=None, geometry=None,
-                           observed_at=None, research_category_id=None):
+                           observed_at=None, research_category_id=_UNSET):
         """
         Update an observation.
         Args:
@@ -127,7 +130,8 @@ class Observations:
             reference_code (str, optional): New reference code.
             geometry (dict or str, optional): Updated geometry.
             observed_at (str, optional): ISO8601 observation timestamp.
-            research_category_id (int or None, optional): Research category ID (pass None to clear).
+            research_category_id (int or None, optional): Research category ID.
+                Pass None to clear it; leave it out to keep the current one.
         Returns:
             dict: Updated observation data.
         """
@@ -136,7 +140,7 @@ class Observations:
         if reference_code is not None: payload["reference_code"] = reference_code
         if geometry is not None: payload["geometry"] = geometry
         if observed_at is not None: payload["observed_at"] = observed_at
-        if research_category_id is not None: payload["research_category_id"] = research_category_id
+        if research_category_id is not _UNSET: payload["research_category_id"] = research_category_id
         data = self._patch(endpoint, payload)
         return data
 
