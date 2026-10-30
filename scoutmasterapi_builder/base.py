@@ -241,6 +241,12 @@ class BaseAPI:
         self._check_auth()
         return {'Authorization': f'Bearer {self.access_token}', 'Content-Type': 'application/json'}
 
+    @staticmethod
+    def _query_params(params):
+        """Query values as the API expects them: requests would send Python's
+        True/False as "True"/"False", the API takes "true"/"false"."""
+        return {k: (str(v).lower() if isinstance(v, bool) else v) for k, v in params.items()}
+
     def _request(self, method, endpoint, **kwargs):
         """Send an authenticated request on the shared session.
 
@@ -252,6 +258,8 @@ class BaseAPI:
         headers = {'Authorization': f'Bearer {self.access_token}'}
         if "json" in kwargs:
             headers['Content-Type'] = 'application/json'
+        if kwargs.get("params"):
+            kwargs["params"] = self._query_params(kwargs["params"])
         try:
             return self._session.request(
                 method, f"{self.host}{endpoint}",

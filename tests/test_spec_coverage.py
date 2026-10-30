@@ -8,68 +8,32 @@ fail when:
   - a method's ⚠️ Conceptual warning doesn't match the spec,
   - `lang` is missing where the endpoint accepts it, or sent where it doesn't.
 
+The recording and matching live in scripts/spec_coverage.py, shared with
+scripts/generate_endpoints.py (which writes methods for missing operations).
+
 The spec is downloaded from SPEC_URL; set SCOUTMASTER_SPEC to a local file or
 another URL to override. Tests are skipped when the spec can't be loaded,
 or fail instead when SCOUTMASTER_SPEC_REQUIRED is set (as in CI).
 
 Run with:  pytest tests
 """
-import inspect
-import json
 import os
-import re
-import tempfile
-import warnings
-from urllib.parse import parse_qs, urlsplit
+import sys
+from pathlib import Path
 
 import pytest
-import requests
 
-from scoutmasterapi_builder.api import ScoutMasterAPI
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+import spec_coverage as sc  # noqa: E402
 
-SPEC_URL = "https://api.scoutmaster.nl/swagger-v3-full.json"
-
-# Spec operations the client deliberately doesn't wrap.
-EXCLUDED = {
-    # Browser sign-in steps and the callback the eID wallet app posts to.
-    "LoginOffer", "Signup", "VerifySignup", "DeeplinkResult", "WalletCallback",
-    # Managing your own account: the API only allows this for people signed in
-    # through the frontend (requireOwnFrontendUser), never for an API client.
-    "DeleteMe", "GetMyDeletionCheck",
-}
-
-# Dummy values for arguments that are validated before any request is made.
-SPECIAL_ARGS = {
-    "reason": "other", "zone_type": 1, "role": "member", "ref_type": "field",
-    "layer_ids": [1], "tbase": 5, "tupper": 30, "value": 1,
-    "cultivation_ids": ["c"], "peergroup_cultivation_ids": ["c"],
-}
-EXTRA_ARGS = {
-    "field_zone_update": {"name": "n"},
-    "environment_user_add": {"user_id": "u"},
-}
-
-
-class _FakeResponse:
-    status_code = 200
-    ok = True
-    text = ""
-    content = b"{}"
-
-    def json(self):
-        return {"data": {"upload_url": "u", "job_id": "j", "s3_key": "k"}}
+from scoutmasterapi_builder.api import ScoutMasterAPI  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def spec():
-    source = os.getenv("SCOUTMASTER_SPEC", SPEC_URL)
+    source = os.getenv("SCOUTMASTER_SPEC", sc.SPEC_URL)
     try:
-        if source.startswith("http"):
-            response = requests.get(source, timeout=30)
-            response.raise_for_status()
-            return response.json()
-        with open(source, encoding="utf-8") as fh:
-            return json.load(fh)
+        return sc.load_spec(source)
     except Exception as e:
         if os.getenv("SCOUTMASTER_SPEC_REQUIRED"):
             pytest.fail(f"Could not load spec from {source}: {e}")
@@ -78,86 +42,27 @@ def spec():
 
 @pytest.fixture(scope="module")
 def spec_ops(spec):
-    """[(HTTP method, path template, path regex, operationId, is_conceptual, query param names)]"""
-    def resolve(obj):
-        while isinstance(obj, dict) and "$ref" in obj:
-            node = spec
-            for part in obj["$ref"].lstrip("#/").split("/"):
-                node = node[part]
-            obj = node
-        return obj
-
-    ops = []
-    for path, item in spec["paths"].items():
-        for method, op in item.items():
-            if method not in ("get", "post", "put", "patch", "delete"):
-                continue
-            regex = re.compile("^" + re.sub(r"\{[^}]+\}", "[^/]+", path.lstrip("/")) + "$")
-            conceptual = "Conceptual" in (op.get("summary") or "")
-            query = frozenset(p["name"] for p in map(resolve, op.get("parameters", []))
-                              if p.get("in") == "query")
-            ops.append((method.upper(), path, regex, op["operationId"], conceptual, query))
-    return ops
+    """[(HTTP method, path template, path regex, operationId, is_conceptual, query param names, ...)]"""
+    return sc.spec_operations(spec)
 
 
 @pytest.fixture(scope="module")
 def recorded():
-    """Call every public method; return
-    ({method name: [(HTTP method, path, query param names)]}, warned names)."""
-    api = ScoutMasterAPI(verbose=False, output_format="json")
-    api.access_token, api._token_expiry = "token", float("inf")
-    calls = {}
-    current = [None]
-
-    def fake_request(method, endpoint, **kwargs):
-        url = urlsplit(endpoint)
-        query = set(parse_qs(url.query)) | set(kwargs.get("params") or {})
-        calls.setdefault(current[0], []).append((method, url.path.rstrip("/"), frozenset(query)))
-        return _FakeResponse()
-
-    api._request = fake_request
-    api.upload_file = lambda *a, **k: None
-
-    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
-    tmp.close()
-    warned = set()
-    try:
-        for name, fn in inspect.getmembers(ScoutMasterAPI, inspect.isfunction):
-            if name.startswith("_") or name in ("authenticate", "set_access_token", "upload_file"):
-                continue
-            current[0] = name
-            args = {}
-            for p in list(inspect.signature(fn).parameters.values())[1:]:
-                if p.default is inspect.Parameter.empty and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
-                    args[p.name] = tmp.name if p.name == "file_path" else SPECIAL_ARGS.get(p.name, "ID")
-            args.update(EXTRA_ARGS.get(name, {}))
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always")
-                try:
-                    getattr(api, name)(**args)
-                except Exception:
-                    # Legacy wrappers that expect structured input fail on
-                    # dummy args; their endpoints are covered by other methods.
-                    pass
-            if any("Conceptual" in str(w.message) for w in caught):
-                warned.add(name)
-    finally:
-        os.unlink(tmp.name)
-    return calls, warned
+    """({method name: [(HTTP method, path, query param names)]}, warned names)"""
+    return sc.record_calls(ScoutMasterAPI)
 
 
 def _match(spec_ops, method, path):
-    hits = [op for op in spec_ops if op[0] == method and op[2].match(path)]
-    # Prefer literal segments, e.g. users/me over users/{userId}.
-    return min(hits, key=lambda op: op[1].count("{")) if hits else None
+    return sc.match(spec_ops, method, path)
 
 
 def test_every_spec_operation_has_a_method(spec_ops, recorded):
     calls, _ = recorded
-    covered = {op[3] for reqs in calls.values() for m, p, _q in reqs if (op := _match(spec_ops, m, p))}
-    missing = sorted(f"{op[0]} {op[1]} ({op[3]})" for op in spec_ops
-                     if op[3] not in covered and op[3] not in EXCLUDED)
-    assert not missing, "Spec operations without a client method:\n" + "\n".join(missing)
+    missing = sorted(f"{op[0]} {op[1]} ({op[3]})" for op in sc.missing_operations(spec_ops, calls))
+    assert not missing, (
+        "Spec operations without a client method:\n" + "\n".join(missing)
+        + "\n\nGenerate methods for them with:  python scripts/generate_endpoints.py"
+    )
 
 
 def test_no_calls_outside_spec(spec_ops, recorded):

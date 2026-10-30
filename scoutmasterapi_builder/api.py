@@ -21,6 +21,7 @@ from .fieldzones import FieldZones
 from .layerexclusions import LayerExclusions
 from .gddthresholds import GddThresholds
 from .eid import Eid
+from .generated import GeneratedEndpoints
 
 
 class ScoutMasterAPI(
@@ -48,6 +49,8 @@ class ScoutMasterAPI(
     LayerExclusions,
     GddThresholds,
     Eid,
+    # Last, so hand-written methods always win (scripts/generate_endpoints.py).
+    GeneratedEndpoints,
 ):
     """Aggregates all topic classes into a single API object"""
     pass
